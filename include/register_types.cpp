@@ -1,6 +1,6 @@
 #include "register_types.hpp"
 
-#include "godot_cpp_plugin.hpp"
+#include "simple_plugin.hpp"
 
 #include <gdextension_interface.h>
 #include <godot_cpp/core/class_db.hpp>
@@ -18,7 +18,7 @@ void initialize_tbm_plugin(ModuleInitializationLevel p_level)
         return;
     }
 
-      GDREGISTER_VIRTUAL_CLASS(godot_cpp_plugin);
+      GDREGISTER_VIRTUAL_CLASS(tbm_plugin);
 }
   
 void uninitialize_tbm_plugin(ModuleInitializationLevel p_level)

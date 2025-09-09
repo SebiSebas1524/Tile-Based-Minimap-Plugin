@@ -6,9 +6,9 @@
 
 using namespace godot;
 
-class godot_cpp_plugin : public Object
+class tbm_plugin : public Object
 {
-    GDCLASS(godot_cpp_plugin, Object)
+    GDCLASS(tbm_plugin, Object)
 
   protected:
     static void _bind_methods();
