@@ -3,7 +3,7 @@ name: Task
 about: Template for a task
 title: ''
 labels: ''
-assignees: ''
+assignees: SebiSebas1524
 
 ---
 
