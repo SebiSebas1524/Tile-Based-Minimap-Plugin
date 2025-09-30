@@ -1,11 +1,15 @@
 #include "register_types.hpp"
 
 #include "simple_plugin.hpp"
+#include "screensaver.hpp"
+#include "tile_tool_creator.hpp"
 
 #include <gdextension_interface.h>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/core/defs.hpp>
 #include <godot_cpp/godot.hpp>
+#include <pluginui.hpp>
+
 
 using namespace godot;
 
@@ -13,12 +17,23 @@ using namespace godot;
 
 void initialize_tbm_plugin(ModuleInitializationLevel p_level)
 {
+    if(p_level == MODULE_INITIALIZATION_LEVEL_EDITOR) {
+        GDREGISTER_CLASS(TileToolCreator);
+        GDREGISTER_INTERNAL_CLASS(PluginUI);
+        EditorPlugins::add_by_type<PluginUI>();
+    }
+
     if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE)
     {
         return;
     }
 
-      GDREGISTER_VIRTUAL_CLASS(tbm_plugin);
+    GDREGISTER_VIRTUAL_CLASS(tbm_plugin);
+    
+    GDREGISTER_RUNTIME_CLASS(Screensaver);
+    
+    
+
 }
   
 void uninitialize_tbm_plugin(ModuleInitializationLevel p_level)
