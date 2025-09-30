@@ -1,0 +1,17 @@
+[gd_scene load_steps=2 format=3 uid="uid://bgre18n2cw8b"]
+
+[ext_resource type="PackedScene" uid="uid://ffomsofage7b" path="res://Maps/Untitled.glb" id="1_a202f"]
+
+[node name="Node3D" type="Node3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0482388, -0.0453895, -0.036413)
+
+[node name="Untitled" parent="." instance=ExtResource("1_a202f")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.250354, -0.0454899, -0.273882)
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 20, 3, 15)
+projection = 1
+current = true
+fov = 127.7
+size = 25.0
+near = 2.9
