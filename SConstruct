@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import os
 
 env = SConscript("godot-cpp/SConstruct")
 
@@ -6,7 +7,12 @@ env.Append(CPPPATH=["include/"])
 
 sources = Glob("include/*.cpp")
 
-folder = "build/addons/TileBasedMinimapPlugin"
+folder = "demo/addons/TileBasedMinimapPlugin"
+
+for filename in os.listdir(folder):
+	file_path = os.path.join(folder, filename)
+	if os.path.isfile(file_path):
+		os.remove(file_path)
 
 if env["platform"] == "macos":
 	file_name = "libtbm_plugin.{}.{}".format(env["platform"], env["target"])

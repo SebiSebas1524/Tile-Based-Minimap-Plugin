@@ -1,0 +1,62 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "group": "build",
+            "type": "shell",
+            "command": "scons",
+            "args": [
+                "dev_build=yes",
+                "debug_symbols=yes",
+                "target=template_debug",
+                "verbose=yes",
+                "optimize=debug" 
+            ],
+            "presentation": {
+                "echo": true,
+                "revealProblems": "onProblem",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "post-build",
+            "group": "build",
+            "type": "shell",
+            "command": "py post_build.py",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            }
+        },
+        {
+            "label": "postest-of-builds",
+            "group": "build",
+            "type": "shell",
+            "command": "py clear_cache.py",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            }
+        },
+        {
+            "label": "full-build",
+            "dependsOn": ["build", "post-build", "postest-of-builds"],
+            "dependsOrder": "sequence",
+            "type": "shell",
+            "command": "echo Running full build..."
+        }
+    ]
+}
