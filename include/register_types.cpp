@@ -1,15 +1,14 @@
 #include "register_types.hpp"
 
-#include "simple_plugin.hpp"
-#include "screensaver.hpp"
-#include "tile_tool_creator.hpp"
-
+#include <godot_cpp/godot.hpp>
 #include <gdextension_interface.h>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/core/defs.hpp>
-#include <godot_cpp/godot.hpp>
 #include <pluginui.hpp>
 
+#include "simple_plugin.hpp"
+#include "tile_tool_creator.hpp"
+#include "minimap.hpp"
 
 using namespace godot;
 
@@ -30,9 +29,7 @@ void initialize_tbm_plugin(ModuleInitializationLevel p_level)
 
     GDREGISTER_VIRTUAL_CLASS(tbm_plugin);
     
-    GDREGISTER_RUNTIME_CLASS(Screensaver);
-    
-    
+    GDREGISTER_CLASS(Minimap);
 
 }
   

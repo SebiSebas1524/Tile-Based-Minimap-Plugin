@@ -16,13 +16,17 @@ void TileToolCreator::_bind_methods() {
     ADD_SIGNAL(MethodInfo("tool_finished"));
 }
 
-TileToolCreator::TileToolCreator() 
+godot::TileToolCreator::TileToolCreator(float tile_size, int tile_amount_x, int tile_amount_y,
+                                        Vector3 init_position, float wait_time) 
+                                        : tile_size(tile_size),
+                                        tile_amount_x(tile_amount_x), 
+                                        tile_amount_y(tile_amount_y),
+                                        init_position(init_position),
+                                        wait_time(wait_time)
 {
 }
 
-TileToolCreator::~TileToolCreator() 
-{
-}
+TileToolCreator::~TileToolCreator() {}
 
 void TileToolCreator::_activate_tool() {
     // Create folder for screenshots
@@ -83,12 +87,12 @@ void TileToolCreator::_process(double delta) {
 
     // Advance indices
     current_x++;
-    if (current_x > tile_length - 1) {
+    if (current_x > tile_amount_x - 1) {
         current_x = 0;
         current_z++;
     }
 
-    if (current_z > tile_length - 1) {
+    if (current_z > tile_amount_y - 1) {
         capturing = false;
         set_process(false);
 

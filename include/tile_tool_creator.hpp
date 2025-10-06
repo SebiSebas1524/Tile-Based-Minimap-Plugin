@@ -12,9 +12,9 @@ class TileToolCreator : public Node {
 
 private:
     float tile_size = 20.0f;
-    int tile_length = 3;
-
-    const Vector3 init_position = Vector3(-15, 0, -20);
+    int tile_amount_x = 3;
+    int tile_amount_y = 3;
+    Vector3 init_position = Vector3(-15, 0, -20);
 
     int current_x = 0;
     int current_z = 0;
@@ -30,12 +30,13 @@ protected:
     static void _bind_methods();
 
 public:
-    TileToolCreator();
+    TileToolCreator(float tile_size = 20.0f, int tile_amount_x = 3, int tile_amount_y = 3, Vector3 init_position = Vector3(-15, 0, -20), float wait_time = 1.0f);
     ~TileToolCreator();
     
     void _process(double delta);
     void _activate_tool();
     void _take_screenshot( Camera3D *camera, int x, int y);
+
 };
 
 } // namespace godot
