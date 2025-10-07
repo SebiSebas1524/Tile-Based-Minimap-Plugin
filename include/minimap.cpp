@@ -46,45 +46,45 @@ void Minimap::_draw() {
     Vector3 cam_pos = cam->get_global_position();
     Vector2 minimap_center = get_size() / 2.0;
     
-    float pixels_per_world_unit = minimap_zoom;
-    
-    // Calculate offset to center the tile grid around world origin
-    float map_width = tile_amount_x * tile_world_size;
-    float map_height = tile_amount_y * tile_world_size;
-    Vector3 map_world_offset(-map_width / 2.0, 0, -map_height / 2.0);
+    // Screenshot tool's initial position is the CENTER of tile [0,0]
+    Vector3 init_position = Vector3(-15, 0, -20);
     
     // Draw all tiles
     for (const auto& [index, tex] : tiles_textures_) {
         if (!tex.is_valid()) continue;
         
-        // Tile world position with offset
-        Vector3 tile_world_pos(
-            map_world_offset.x + (index.y * tile_world_size),
-            0,
-            map_world_offset.z + (index.x * tile_world_size)
-        );
+        int tile_x = index.first;   
+        int tile_y = index.second;  
         
-        float tile_minimap_x = tile_world_pos.z * pixels_per_world_unit;
-        float tile_minimap_y = tile_world_pos.x * pixels_per_world_unit;
+        // Calculate tile CENTER position based on screenshot tool's coordinate system
+        // Each tile center is offset by tile_world_size from init_position
+        float tile_world_x = init_position.x + (tile_x * tile_world_size);
+        float tile_world_z = init_position.z + (tile_y * tile_world_size);
         
-        float cam_minimap_x = cam_pos.x * pixels_per_world_unit;
-        float cam_minimap_y = cam_pos.z * pixels_per_world_unit;
-        
-        Vector2 screen_pos;
-        screen_pos.x = minimap_center.x + (tile_minimap_x - cam_minimap_x);
-        screen_pos.y = minimap_center.y + (tile_minimap_y - cam_minimap_y);
+        // Calculate offset from camera to tile center
+        float offset_x = (tile_world_x - cam_pos.x) * minimap_zoom;
+        float offset_z = (tile_world_z - cam_pos.z) * minimap_zoom;
         
         float display_size = tile_world_size * minimap_zoom;
         
+        // Position tile on screen (centered on the calculated position)
+        Vector2 screen_pos;
+        screen_pos.x = minimap_center.x + offset_x - (display_size / 2.0);
+        screen_pos.y = minimap_center.y + offset_z - (display_size / 2.0);
+        
         Rect2 dest_rect(screen_pos, Vector2(display_size, display_size));
         
+        // Only draw if visible
         Rect2 minimap_rect(Vector2(0, 0), get_size());
         if (minimap_rect.intersects(dest_rect)) {
             draw_texture_rect(tex, dest_rect, false);
         }
     }
     
-    draw_circle(minimap_center, 8.0, Color(0, 1, 0));
+    // Draw camera/player indicator (green dot in center)
+    draw_circle(minimap_center, 5.0, Color(0, 1, 0));
+    
+    // Draw minimap border
     draw_rect(Rect2(Vector2(0, 0), get_size()), Color(1, 1, 1, 0.5), false, 2.0);
 }
 
@@ -106,7 +106,7 @@ void Minimap::load_tiles() {
             Ref<Texture2D> tex = ResourceLoader::get_singleton()->load(path, "Texture2D");
             
             if (tex.is_valid()) {
-                tiles_textures_[Vector2i(x, y)] = tex;
+                tiles_textures_[std::make_pair(x, y)] = tex;
                 UtilityFunctions::print("Successfully loaded tile: ", path, " | Size: ", tex->get_size());
             } else {
                 UtilityFunctions::print("ERROR: Failed to load texture: ", path);
