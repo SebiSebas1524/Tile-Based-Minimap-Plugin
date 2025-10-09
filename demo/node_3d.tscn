@@ -1,8 +1,7 @@
-[gd_scene load_steps=4 format=3 uid="uid://bgre18n2cw8b"]
+[gd_scene load_steps=3 format=3 uid="uid://bgre18n2cw8b"]
 
 [ext_resource type="PackedScene" uid="uid://ffomsofage7b" path="res://Maps/Untitled.glb" id="1_a202f"]
 [ext_resource type="Script" uid="uid://bblj1f2xkic2x" path="res://camera_3d.gd" id="2_noarx"]
-[ext_resource type="Script" uid="uid://c6pi6n1cpwdc0" path="res://DebugDraws.gd" id="3_a0tk4"]
 
 [node name="Node3D" type="Node3D"]
 
@@ -28,9 +27,10 @@ offset_top = -300.0
 offset_right = 300.0
 grow_vertical = 0
 
-[node name="Node3D" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 21.0539, 0)
-script = ExtResource("3_a0tk4")
-cell_size = 5.0
-grid_color = Color(1, 0.347178, 0.594848, 1)
-refresh = true
+[node name="TileCaptureVisualizer" type="TileCaptureVisualizer" parent="."]
+tile_size = 10.0
+tile_amount_x = 6
+tile_amount_y = 6
+init_position = Vector3(-21.3983, 15.5, -22.9784)
+box_height = 15.0
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -21.3983, 15.5, -22.9784)
