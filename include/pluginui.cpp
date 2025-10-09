@@ -1,5 +1,6 @@
 #include "pluginui.hpp"
 #include <godot_cpp/classes/editor_interface.hpp>
+#include <tile_capture_visualizer.hpp>
 
 void PluginUI::_bind_methods()
 {
@@ -31,6 +32,16 @@ void PluginUI::_enter_tree()
     add_control_to_dock(EditorPlugin::DOCK_SLOT_LEFT_BL, m_button);
 
     m_tool->connect("tool_finished", Callable(this, "_on_tool_finished"));
+
+    // Add the gizmo
+    Ref<TileCaptureVisualizerGizmoPlugin> gizmo_plugin;
+    gizmo_plugin.instantiate();
+    add_node_3d_gizmo_plugin(gizmo_plugin);
+
+    // Register inspector plugin
+    Ref<TileCaptureVisualizerInspectorPlugin> inspector_plugin;
+    inspector_plugin.instantiate();
+    add_inspector_plugin(inspector_plugin);
 }
 
 void PluginUI::_exit_tree()

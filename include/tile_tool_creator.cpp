@@ -24,6 +24,7 @@ godot::TileToolCreator::TileToolCreator(float tile_size, int tile_amount_x, int 
                                         init_position(init_position),
                                         wait_time(wait_time)
 {
+    UtilityFunctions::print("Tool for tiles created!");
 }
 
 TileToolCreator::~TileToolCreator() {}

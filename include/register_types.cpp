@@ -9,6 +9,7 @@
 #include "simple_plugin.hpp"
 #include "tile_tool_creator.hpp"
 #include "minimap.hpp"
+#include "tile_capture_visualizer.hpp"
 
 using namespace godot;
 
@@ -17,7 +18,11 @@ using namespace godot;
 void initialize_tbm_plugin(ModuleInitializationLevel p_level)
 {
     if(p_level == MODULE_INITIALIZATION_LEVEL_EDITOR) {
+        GDREGISTER_CLASS(TileCaptureVisualizerGizmoPlugin);
+        GDREGISTER_CLASS(TileCaptureVisualizer);
+        GDREGISTER_CLASS(TileCaptureVisualizerInspectorPlugin);
         GDREGISTER_CLASS(TileToolCreator);
+
         GDREGISTER_INTERNAL_CLASS(PluginUI);
         EditorPlugins::add_by_type<PluginUI>();
     }
@@ -30,6 +35,7 @@ void initialize_tbm_plugin(ModuleInitializationLevel p_level)
     GDREGISTER_VIRTUAL_CLASS(tbm_plugin);
     
     GDREGISTER_CLASS(Minimap);
+    
 
 }
   
