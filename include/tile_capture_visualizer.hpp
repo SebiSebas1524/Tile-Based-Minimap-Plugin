@@ -35,7 +35,9 @@ public:
     ~TileCaptureVisualizer();
 
     void _notification(int p_what);
-    
+
+    void _on_tool_finished();
+
     // Actions
     void generate_tiles();
     void reset_to_defaults();
@@ -93,11 +95,17 @@ class TileCaptureVisualizerInspectorPlugin : public EditorInspectorPlugin {
 protected:
     static void _bind_methods();
 
+private:
+    Vector<Button*> buttons; // Store buttons to enable/disable them during operations
+
 public:
     TileCaptureVisualizerInspectorPlugin();
     
     bool _can_handle(Object* object) const override;
     void _parse_begin(Object* object) override;
+
+    void _on_operation_started(Button *active_btn);
+    void _on_operation_finished(Button *active_btn);
 };
 
 } // namespace godot

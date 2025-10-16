@@ -1,5 +1,3 @@
-// ============================================================================
-// tile_capture_visualizer.cpp (UPDATED WITH YOUR CHANGES + IMPROVEMENTS)
 #include "tile_capture_visualizer.hpp"
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/classes/standard_material3d.hpp>
@@ -54,44 +52,68 @@ void TileCaptureVisualizer::_bind_methods() {
     
     ClassDB::bind_method(D_METHOD("generate_tiles"), &TileCaptureVisualizer::generate_tiles);
     ClassDB::bind_method(D_METHOD("reset_to_defaults"), &TileCaptureVisualizer::reset_to_defaults);
+
+    ClassDB::bind_method(D_METHOD("_on_tool_finished"), &TileCaptureVisualizer::_on_tool_finished);
+
+    ADD_SIGNAL(MethodInfo("operation_started"));
+    ADD_SIGNAL(MethodInfo("operation_finished"));
 }
 
 void TileCaptureVisualizer::_notification(int p_what) {
     switch (p_what) {
         case NOTIFICATION_READY:
-            // Enable transform notifications and sync init_position with node position
             set_notify_transform(true);
             init_position = get_global_position();
             update_gizmos();
             break;
         case NOTIFICATION_TRANSFORM_CHANGED:
         case NOTIFICATION_LOCAL_TRANSFORM_CHANGED:
-            // CRITICAL: Sync init_position when node is moved with Godot's gizmo
             init_position = get_global_position();
-            // Force redraw
             update_gizmos();
             break;
     }
 }
 
+void TileCaptureVisualizer::_on_tool_finished() {
+    UtilityFunctions::print("TileCaptureVisualizer: Tool finished!");
+    
+    for (int i = 0; i < get_child_count(); i++) {
+        TileToolCreator* tool = Object::cast_to<TileToolCreator>(get_child(i));
+        if (tool) {
+            tool->queue_free(); 
+            break;
+        }
+    }
+    
+    emit_signal("operation_finished");
+}
+
 void TileCaptureVisualizer::generate_tiles() {
     UtilityFunctions::print("TileCaptureVisualizer: Generate tiles!");
+    
+    emit_signal("operation_started");
 
-    TileToolCreator* m_tool = memnew(TileToolCreator(tile_size, tile_amount_x, tile_amount_y, init_position, 0.5f));
-
-    add_child(m_tool);
-
-    // Start the tool's operation
-    m_tool->_activate_tool();
+    TileToolCreator* tool = memnew(TileToolCreator(get_tile_size(), get_tile_amount_x(), 
+                                                     get_tile_amount_y(), get_init_position(), 0.5f));
+    add_child(tool);
+    
+    tool->connect("tool_finished", Callable(this, "_on_tool_finished"));
+    
+    tool->_activate_tool();
 }
 
 void TileCaptureVisualizer::reset_to_defaults() {
     UtilityFunctions::print("TileCaptureVisualizer: Reset to defaults!");
+    
+    emit_signal("operation_started");
+    
     set_tile_size(20.0f);
     set_tile_amount_x(3);
     set_tile_amount_y(3);
     set_init_position(Vector3(0, 0, 0));
     set_box_height(20.0f);
+    
+    emit_signal("operation_finished");
 }
 
 // Setters and getters
@@ -124,9 +146,7 @@ int TileCaptureVisualizer::get_tile_amount_y() const {
 
 void TileCaptureVisualizer::set_init_position(Vector3 pos) {
     init_position = pos;
-    set_global_position(pos); // Sync node position with init_position
-    // Don't call update_gizmos here to avoid infinite loop
-    // update_gizmos will be called by NOTIFICATION_TRANSFORM_CHANGED
+    set_global_position(pos); 
 }
 
 Vector3 TileCaptureVisualizer::get_init_position() const {
@@ -180,7 +200,7 @@ String TileCaptureVisualizerGizmoPlugin::_get_gizmo_name() const {
 }
 
 int32_t TileCaptureVisualizerGizmoPlugin::_get_priority() const {
-    return -1; // Lower priority so it doesn't interfere with transform gizmo
+    return -1;
 }
 
 void TileCaptureVisualizerGizmoPlugin::_redraw(const Ref<EditorNode3DGizmo>& gizmo) {
@@ -194,9 +214,7 @@ void TileCaptureVisualizerGizmoPlugin::_redraw(const Ref<EditorNode3DGizmo>& giz
     int tile_amount_y = visualizer->get_tile_amount_y();
     float box_height = visualizer->get_box_height();
     
-    // IMPORTANT: Gizmo draws in LOCAL SPACE relative to the node
-    // The node position is the center of tile [0,0], so we draw relative to Vector3(0,0,0)
-    Vector3 local_center = Vector3(0, 0, 0); // This is the center of tile [0,0]
+    Vector3 local_center = Vector3(0, 0, 0); 
     
     PackedVector3Array grid_lines;
     PackedVector3Array box_lines;
@@ -205,21 +223,19 @@ void TileCaptureVisualizerGizmoPlugin::_redraw(const Ref<EditorNode3DGizmo>& giz
     float grid_start_x = local_center.x - (tile_size / 2.0f);
     float grid_start_z = local_center.z - (tile_size / 2.0f);
     
-    // Grid ends after all tiles
     float grid_end_x = grid_start_x + (tile_amount_x * tile_size);
     float grid_end_z = grid_start_z + (tile_amount_y * tile_size);
     
     float grid_y = local_center.y;
     
     // Draw GRID on top (flat, horizontal)
-    // Vertical lines (along X axis) - from tile 0 to tile_amount_x
     for (int x = 0; x <= tile_amount_x; x++) {
         float x_pos = grid_start_x + (x * tile_size);
         grid_lines.push_back(Vector3(x_pos, grid_y, grid_start_z));
         grid_lines.push_back(Vector3(x_pos, grid_y, grid_end_z));
     }
     
-    // Horizontal lines (along Z axis) - from tile 0 to tile_amount_y
+    // Horizontal lines (along Z axis) 
     for (int y = 0; y <= tile_amount_y; y++) {
         float z_pos = grid_start_z + (y * tile_size);
         grid_lines.push_back(Vector3(grid_start_x, grid_y, z_pos));
@@ -309,6 +325,10 @@ TileCaptureVisualizerInspectorPlugin::TileCaptureVisualizerInspectorPlugin() {
 }
 
 void TileCaptureVisualizerInspectorPlugin::_bind_methods() {
+    ClassDB::bind_method(D_METHOD("_on_operation_started", "active_btn"), 
+                        &TileCaptureVisualizerInspectorPlugin::_on_operation_started);
+    ClassDB::bind_method(D_METHOD("_on_operation_finished", "active_btn"), 
+                        &TileCaptureVisualizerInspectorPlugin::_on_operation_finished);
 }
 
 bool TileCaptureVisualizerInspectorPlugin::_can_handle(Object* object) const {
@@ -319,17 +339,43 @@ void TileCaptureVisualizerInspectorPlugin::_parse_begin(Object* object) {
     TileCaptureVisualizer* visualizer = Object::cast_to<TileCaptureVisualizer>(object);
     if (!visualizer) return;
     
-    // Create a button for generating tiles
-    Button* update_btn = memnew(Button);
-    update_btn->set_text("Generate Tiles");
-    update_btn->connect("pressed", Callable(visualizer, "generate_tiles"));
-    add_custom_control(update_btn);
+    Button* generate_btn = memnew(Button);
+    generate_btn->set_text("Generate Tiles");
+    generate_btn->connect("pressed", Callable(visualizer, "generate_tiles"));
+    add_custom_control(generate_btn);
     
-    // Create a button for reset
     Button* reset_btn = memnew(Button);
     reset_btn->set_text("Reset to Defaults");
     reset_btn->connect("pressed", Callable(visualizer, "reset_to_defaults"));
     add_custom_control(reset_btn);
+    
+    // Connect signals and bind the specific button
+    visualizer->connect("operation_started", Callable(this, "_on_operation_started").bind(generate_btn));
+    visualizer->connect("operation_finished", Callable(this, "_on_operation_finished").bind(generate_btn));
+    
+    // Store all buttons for disabling/enabling them all
+    buttons.push_back(generate_btn);
+    buttons.push_back(reset_btn);
+}
+
+void TileCaptureVisualizerInspectorPlugin::_on_operation_started(Button* active_btn) {
+    // Disable ALL buttons
+    for (Button* btn : buttons) {
+        btn->set_disabled(true);
+    }
+    
+    // Only change text on the button that was pressed
+    active_btn->set_text("Loading...");
+}
+
+void TileCaptureVisualizerInspectorPlugin::_on_operation_finished(Button* active_btn) {
+    // Enable ALL buttons
+    for (Button* btn : buttons) {
+        btn->set_disabled(false);
+    }
+    
+    // Restore text on the button that was pressed
+    active_btn->set_text("Generate Tiles"); // Or store original text
 }
 
 Variant TileCaptureVisualizerGizmoPlugin::_get_handle_value(const Ref<EditorNode3DGizmo>& gizmo, int32_t handle_id, bool secondary) const {
