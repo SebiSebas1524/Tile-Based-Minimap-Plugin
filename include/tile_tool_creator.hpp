@@ -14,7 +14,7 @@ private:
     float tile_size = 20.0f;
     int tile_amount_x = 3;
     int tile_amount_y = 3;
-    Vector3 init_position = Vector3(-15, 0, -20);
+    Vector3 init_position = Vector3(0 , 0, 0);
 
     int current_x = 0;
     int current_z = 0;

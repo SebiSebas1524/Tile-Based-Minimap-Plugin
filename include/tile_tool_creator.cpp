@@ -5,6 +5,9 @@
 #include <godot_cpp/classes/viewport_texture.hpp>
 #include <godot_cpp/classes/camera3d.hpp>
 #include <godot_cpp/classes/dir_access.hpp>
+#include <godot_cpp/classes/editor_interface.hpp>
+#include <godot_cpp/classes/editor_file_system.hpp>
+#include <godot_cpp/classes/engine.hpp>
 
 
 using namespace godot;
@@ -49,10 +52,11 @@ void TileToolCreator::_activate_tool() {
 
     add_child(sub_vp);
 
+
     camera = memnew(Camera3D);
     camera->set_current(true);
     camera->set_projection(Camera3D::PROJECTION_ORTHOGONAL);
-    camera->set_orthogonal(20, 1.2f, 1000.0f);
+    camera->set_orthogonal(tile_size, 1.2f, 1000.0f);
     camera->set_position(Vector3(init_position.x, 10 , init_position.z));
     camera->set_rotation_degrees(Vector3(-90, 0, 0));
     sub_vp->add_child(camera);
@@ -121,6 +125,14 @@ void TileToolCreator::_take_screenshot( Camera3D *camera, int x, int y) {
     Error err = img->save_png(file_path);
     if (err == OK) {
         UtilityFunctions::print("Saved screenshot to: ", file_path);
+
+        if (godot::Engine::get_singleton()->is_editor_hint()) {
+            EditorInterface *editor = EditorInterface::get_singleton();
+            if (editor) {
+                editor->get_resource_filesystem()->scan();
+            }
+        }
+    
     } else {
         UtilityFunctions::printerr("Failed to save screenshot: ", file_path);
     }

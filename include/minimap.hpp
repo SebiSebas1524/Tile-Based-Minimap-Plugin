@@ -11,14 +11,18 @@
 using namespace godot;
 
 class Minimap : public Control {
+
     GDCLASS(Minimap, Control)
 
 private:
+    String folder_path;
+
     std::map<std::pair<int, int>, Ref<Texture2D>> tiles_textures_;
-    int tile_amount_x = 4;  
-    int tile_amount_y = 4;
-    float tile_world_size = 20.0;  // How many world units each tile represents
-    float minimap_zoom = 6.0;  // Zoom level (adjust this to zoom in/out)
+    int tile_amount_x = 6;  
+    int tile_amount_y = 6;
+    float tile_world_size = 10.0; 
+    float minimap_zoom = 6.0;  
+    Vector3 init_position = Vector3(-15, 0, -20);
 
 protected:
     static void _bind_methods();
@@ -31,6 +35,21 @@ public:
     void _process(double delta);
     void _draw();
     void load_tiles();
+
+    int get_tile_amount_x() const;
+    void set_tile_amount_x(int amount);
+    int get_tile_amount_y() const;
+    void set_tile_amount_y(int amount);
+    float get_tile_size() const;
+    void set_tile_size(float size);
+    Vector3 get_init_position() const;
+    void set_init_position(const Vector3& pos); 
+    float get_minimap_zoom() const;
+    void set_minimap_zoom(float zoom);
+
+    void set_folder_path(const String &p_path);
+    String get_folder_path() const;
+
 };
 
 #endif

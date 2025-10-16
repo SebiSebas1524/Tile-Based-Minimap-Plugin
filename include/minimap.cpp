@@ -12,9 +12,37 @@ using namespace godot;
 
 void Minimap::_bind_methods() {
     ClassDB::bind_method(D_METHOD("load_tiles"), &Minimap::load_tiles);
+
+
+    ClassDB::bind_method(D_METHOD("set_tile_size", "size"), &Minimap::set_tile_size);
+    ClassDB::bind_method(D_METHOD("get_tile_size"), &Minimap::get_tile_size);
+    ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "tile_size"), "set_tile_size", "get_tile_size");
+
+    ClassDB::bind_method(D_METHOD("set_tile_amount_x", "amount"), &Minimap::set_tile_amount_x);
+    ClassDB::bind_method(D_METHOD("get_tile_amount_x"), &Minimap::get_tile_amount_x);
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "tile_amount_x", PROPERTY_HINT_RANGE, "1,20,1"), "set_tile_amount_x", "get_tile_amount_x");
+
+    ClassDB::bind_method(D_METHOD("set_tile_amount_y", "amount"), &Minimap::set_tile_amount_y);
+    ClassDB::bind_method(D_METHOD("get_tile_amount_y"), &Minimap::get_tile_amount_y);
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "tile_amount_y", PROPERTY_HINT_RANGE, "1,20,1"), "set_tile_amount_y", "get_tile_amount_y");
+
+    ClassDB::bind_method(D_METHOD("set_init_position", "pos"), &Minimap::set_init_position);
+    ClassDB::bind_method(D_METHOD("get_init_position"), &Minimap::get_init_position);
+    ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "init_position"), "set_init_position", "get_init_position");
+
+    ClassDB::bind_method(D_METHOD("set_minimap_zoom", "zoom"), &Minimap::set_minimap_zoom);
+    ClassDB::bind_method(D_METHOD("get_minimap_zoom"), &Minimap::get_minimap_zoom);
+    ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "minimap_zoom" , PROPERTY_HINT_RANGE, "1,50,1"), "set_minimap_zoom", "get_minimap_zoom");
+
+    ClassDB::bind_method(D_METHOD("get_folder_path"), &Minimap::get_folder_path);
+    ClassDB::bind_method(D_METHOD("set_folder_path", "path"), &Minimap::set_folder_path);
+
+    ADD_PROPERTY(PropertyInfo(Variant::STRING, "folder_path", PROPERTY_HINT_DIR), "set_folder_path", "get_folder_path");
+
 }
 
-Minimap::Minimap() {
+Minimap::Minimap() : folder_path("") {
+    this->set_clip_contents(true);
 }
 
 void Minimap::_notification(int p_what) {
@@ -29,6 +57,7 @@ void Minimap::_notification(int p_what) {
 }
 
 void Minimap::_ready() {
+    
     UtilityFunctions::print("=== MINIMAP READY ===");
     set_process(true);
     load_tiles();
@@ -45,9 +74,6 @@ void Minimap::_draw() {
     
     Vector3 cam_pos = cam->get_global_position();
     Vector2 minimap_center = get_size() / 2.0;
-    
-    // Screenshot tool's initial position is the CENTER of tile [0,0]
-    Vector3 init_position = Vector3(-15, 0, -20);
     
     // Draw all tiles
     for (const auto& [index, tex] : tiles_textures_) {
@@ -118,3 +144,47 @@ void Minimap::load_tiles() {
     UtilityFunctions::print("===================");
 }
 
+void Minimap::set_tile_amount_x(int amount) {
+    tile_amount_x = amount;
+    load_tiles();
+    queue_redraw();
+}   
+int Minimap::get_tile_amount_x() const {
+    return tile_amount_x;
+}
+void Minimap::set_tile_amount_y(int amount) {
+    tile_amount_y = amount;
+    load_tiles();
+    queue_redraw();
+}
+int Minimap::get_tile_amount_y() const {
+    return tile_amount_y;
+}
+void Minimap::set_tile_size(float size) {
+    tile_world_size = size;
+    queue_redraw();
+}
+float Minimap::get_tile_size() const {
+    return tile_world_size;
+}
+void Minimap::set_init_position(const Vector3& pos) {
+    init_position = pos;
+}
+Vector3 Minimap::get_init_position() const {
+    return init_position;
+}
+void Minimap::set_minimap_zoom(float zoom) {
+    minimap_zoom = zoom;
+    queue_redraw();
+}
+float Minimap::get_minimap_zoom() const {
+    return minimap_zoom;
+}
+void Minimap::set_folder_path(const String &p_path) {
+    folder_path = p_path;
+    load_tiles();
+    queue_redraw();
+}
+String Minimap::get_folder_path() const {
+    return folder_path;
+}
