@@ -5,7 +5,6 @@
 #include <godot_cpp/classes/image_texture.hpp>
 #include <godot_cpp/variant/vector2.hpp>
 #include <godot_cpp/variant/vector3.hpp>
-#include <godot_cpp/classes/camera3d.hpp>
 #include <godot_cpp/classes/viewport.hpp>
 
 using namespace godot;
@@ -32,7 +31,7 @@ void Minimap::_bind_methods() {
 
     ClassDB::bind_method(D_METHOD("set_minimap_zoom", "zoom"), &Minimap::set_minimap_zoom);
     ClassDB::bind_method(D_METHOD("get_minimap_zoom"), &Minimap::get_minimap_zoom);
-    ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "minimap_zoom" , PROPERTY_HINT_RANGE, "1,50,1"), "set_minimap_zoom", "get_minimap_zoom");
+    ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "minimap_zoom" , PROPERTY_HINT_RANGE, "1,50,0.2"), "set_minimap_zoom", "get_minimap_zoom");
 
     ClassDB::bind_method(D_METHOD("get_folder_path"), &Minimap::get_folder_path);
     ClassDB::bind_method(D_METHOD("set_folder_path", "path"), &Minimap::set_folder_path);
@@ -60,12 +59,120 @@ void Minimap::_ready() {
     
     UtilityFunctions::print("=== MINIMAP READY ===");
     set_process(true);
-    load_tiles();
+    scan_available_tiles();
     queue_redraw();
 }
 
 void Minimap::_process(double delta) {
+    Camera3D *cam = get_viewport()->get_camera_3d();
+    if (!cam) return;
+    if(cam->get_global_position() != last_cam_pos) {
+        last_cam_pos = cam->get_global_position();
+        update_visible_tiles(cam);
+    }
     queue_redraw();
+}
+
+void Minimap::update_visible_tiles(Camera3D *cam) {
+    
+    Vector3 cam_pos = cam->get_global_position();
+
+    Vector2 minimap_center = get_size() / 2.0;
+    Rect2 minimap_rect(Vector2(0, 0), get_size());
+    
+    // Calculate world bounds that COULD be visible
+    float world_half_width = (get_size().x / 2.0) / minimap_zoom;
+    float world_half_height = (get_size().y / 2.0) / minimap_zoom;
+    
+    float world_left = cam_pos.x - world_half_width;
+    float world_right = cam_pos.x + world_half_width;
+    float world_top = cam_pos.z - world_half_height;
+    float world_bottom = cam_pos.z + world_half_height;
+    
+    // Convert to tile indices
+    int tile_x_min = std::max(0, (int)floor((world_left - init_position.x) / tile_world_size) );
+    int tile_x_max = std::min(tile_amount_x - 1, (int)ceil((world_right - init_position.x) / tile_world_size) );
+    int tile_y_min = std::max(0, (int)floor((world_top - init_position.z) / tile_world_size) );
+    int tile_y_max = std::min(tile_amount_y - 1, (int)ceil((world_bottom - init_position.z) / tile_world_size) );
+    
+    UtilityFunctions::print("Tile range: X[", tile_x_min, "-", tile_x_max, "] Y[", tile_y_min, "-", tile_y_max, "]");
+
+    std::set<std::pair<int, int>> tiles_in_view;
+    
+    // Only check tiles in the calculated range
+    for (int x = tile_x_min; x <= tile_x_max; x++) {
+        for (int y = tile_y_min; y <= tile_y_max; y++) {
+            tiles_in_view.insert({x, y});
+            
+            if (tiles_textures_.find({x, y}) == tiles_textures_.end()) {
+                load_single_tile(x, y);
+            }
+        }
+    }
+
+    UtilityFunctions::print("Tiles should be visible: ", tiles_in_view.size());
+    UtilityFunctions::print("Tiles currently loaded: ", tiles_textures_.size());
+    
+    // Unload distant tiles
+    std::vector<std::pair<int, int>> to_unload;
+    for (const auto& [tile_idx, tex] : tiles_textures_) {
+        if (tiles_in_view.find(tile_idx) == tiles_in_view.end()) {
+            to_unload.push_back(tile_idx);
+            UtilityFunctions::print("Marking for unload: ", tile_idx.first, ", ", tile_idx.second);
+        }
+    }
+    
+    for (const auto& idx : to_unload) {
+        unload_single_tile(idx.first, idx.second);
+    }
+}
+
+// Load a single tile
+void Minimap::load_single_tile(int x, int y) {
+    // Don't reload if already loaded
+    if (tiles_textures_.find({x, y}) != tiles_textures_.end()) {
+        return;
+    }
+    
+    String path = vformat("%s/tile_%d_%d.png", folder_path, x, y);
+    
+    if (!ResourceLoader::get_singleton()->exists(path)) {
+        return;  // File doesn't exist, skip
+    }
+    
+    Ref<Texture2D> tex = ResourceLoader::get_singleton()->load(path, "Texture2D");
+    
+    if (tex.is_valid()) {
+        tiles_textures_[{x, y}] = tex;  // ← ONLY loaded tiles go here
+        UtilityFunctions::print("Loaded tile: ", x, ", ", y);
+    }
+}
+
+// Unload a single tile
+void Minimap::unload_single_tile(int x, int y) {
+    auto it = tiles_textures_.find({x, y});
+    if (it != tiles_textures_.end()) {
+          UtilityFunctions::print("Unloading tile: ", x, ", ", y);
+        tiles_textures_.erase(it);  // ← This should remove it
+    } else {
+        UtilityFunctions::print("Tried to unload non-existent tile: ", x, ", ", y);
+    }
+}
+
+// Optional: Scan what tiles exist on disk (run once at startup)
+void Minimap::scan_available_tiles() {
+    available_tiles_on_disk_.clear();
+    
+    for (int x = 0; x < tile_amount_x; x++) {
+        for (int y = 0; y < tile_amount_y; y++) {
+            String path = vformat("%s/tile_%d_%d.png", folder_path, x, y);
+            if (ResourceLoader::get_singleton()->exists(path)) {
+                available_tiles_on_disk_.insert({x, y});
+            }
+        }
+    }
+    
+    UtilityFunctions::print("Found ", available_tiles_on_disk_.size(), " tiles on disk");
 }
 
 void Minimap::_draw() {
@@ -75,42 +182,34 @@ void Minimap::_draw() {
     Vector3 cam_pos = cam->get_global_position();
     Vector2 minimap_center = get_size() / 2.0;
     
-    // Draw all tiles
     for (const auto& [index, tex] : tiles_textures_) {
         if (!tex.is_valid()) continue;
         
         int tile_x = index.first;   
-        int tile_y = index.second;  
+        int tile_y = index.second;
         
-        // Calculate tile CENTER position based on screenshot tool's coordinate system
-        // Each tile center is offset by tile_world_size from init_position
-        float tile_world_x = init_position.x + (tile_x * tile_world_size);
-        float tile_world_z = init_position.z + (tile_y * tile_world_size);
+        // World position this tile represents (CENTER of tile)
+        float tile_world_x = init_position.x + (tile_x * tile_world_size) + (tile_world_size / 2.0);
+        float tile_world_z = init_position.z + (tile_y * tile_world_size) + (tile_world_size / 2.0);
         
-        // Calculate offset from camera to tile center
+        // Offset from camera (in world units, then scaled to screen)
         float offset_x = (tile_world_x - cam_pos.x) * minimap_zoom;
         float offset_z = (tile_world_z - cam_pos.z) * minimap_zoom;
         
+        // Tile display size (world size scaled to screen)
         float display_size = tile_world_size * minimap_zoom;
         
-        // Position tile on screen (centered on the calculated position)
+        // Position on screen (centered on calculated position)
         Vector2 screen_pos;
         screen_pos.x = minimap_center.x + offset_x - (display_size / 2.0);
         screen_pos.y = minimap_center.y + offset_z - (display_size / 2.0);
         
         Rect2 dest_rect(screen_pos, Vector2(display_size, display_size));
         
-        // Only draw if visible
-        Rect2 minimap_rect(Vector2(0, 0), get_size());
-        if (minimap_rect.intersects(dest_rect)) {
-            draw_texture_rect(tex, dest_rect, false);
-        }
+        draw_texture_rect(tex, dest_rect, false);
     }
     
-    // Draw camera/player indicator (green dot in center)
     draw_circle(minimap_center, 5.0, Color(0, 1, 0));
-    
-    // Draw minimap border
     draw_rect(Rect2(Vector2(0, 0), get_size()), Color(1, 1, 1, 0.5), false, 2.0);
 }
 
@@ -146,7 +245,6 @@ void Minimap::load_tiles() {
 
 void Minimap::set_tile_amount_x(int amount) {
     tile_amount_x = amount;
-    load_tiles();
     queue_redraw();
 }   
 int Minimap::get_tile_amount_x() const {
@@ -154,7 +252,6 @@ int Minimap::get_tile_amount_x() const {
 }
 void Minimap::set_tile_amount_y(int amount) {
     tile_amount_y = amount;
-    load_tiles();
     queue_redraw();
 }
 int Minimap::get_tile_amount_y() const {
@@ -182,7 +279,6 @@ float Minimap::get_minimap_zoom() const {
 }
 void Minimap::set_folder_path(const String &p_path) {
     folder_path = p_path;
-    load_tiles();
     queue_redraw();
 }
 String Minimap::get_folder_path() const {

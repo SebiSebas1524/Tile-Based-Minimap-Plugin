@@ -3,6 +3,7 @@
 
 #include <godot_cpp/classes/control.hpp>
 #include <godot_cpp/classes/texture2d.hpp>
+#include <godot_cpp/classes/camera3d.hpp>
 #include <map>
 #include <utility>
 
@@ -18,12 +19,14 @@ private:
     String folder_path;
 
     std::map<std::pair<int, int>, Ref<Texture2D>> tiles_textures_;
-    int tile_amount_x = 6;  
-    int tile_amount_y = 6;
-    float tile_world_size = 10.0; 
+    
+    std::set<std::pair<int, int>> available_tiles_on_disk_;
+    int tile_amount_x = 3;  
+    int tile_amount_y = 3;
+    float tile_world_size = 20.0; 
     float minimap_zoom = 6.0;  
-    Vector3 init_position = Vector3(-15, 0, -20);
-
+    Vector3 init_position = Vector3(0, 0, 0);
+    Vector3 last_cam_pos = Vector3(999999, 999999, 999999);
 protected:
     static void _bind_methods();
 
@@ -33,7 +36,11 @@ public:
     void _notification(int p_what); 
     void _ready();
     void _process(double delta);
+    void update_visible_tiles(Camera3D *cam);
     void _draw();
+    void scan_available_tiles();
+    void load_single_tile(int x, int y);
+    void unload_single_tile(int x, int y);
     void load_tiles();
 
     int get_tile_amount_x() const;

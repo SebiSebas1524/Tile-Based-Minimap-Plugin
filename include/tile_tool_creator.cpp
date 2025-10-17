@@ -46,7 +46,7 @@ void TileToolCreator::_activate_tool() {
     }
 
     sub_vp = memnew(SubViewport);
-    sub_vp->set_size(Vector2i(512, 512));
+    sub_vp->set_size(Vector2i(1200, 1200));
     sub_vp->set_update_mode(SubViewport::UPDATE_ALWAYS);
     sub_vp->set_clear_mode(SubViewport::CLEAR_MODE_ALWAYS);
 
