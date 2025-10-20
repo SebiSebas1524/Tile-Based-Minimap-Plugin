@@ -23,7 +23,6 @@ tile_size = 10.0
 tile_amount_x = 6
 tile_amount_y = 6
 init_position = Vector3(-20, 0, -25)
-minimap_zoom = 18.0
 folder_path = "res://tiles"
 clip_contents = false
 custom_minimum_size = Vector2(250, 250)

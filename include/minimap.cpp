@@ -188,18 +188,18 @@ void Minimap::_draw() {
         int tile_x = index.first;   
         int tile_y = index.second;
         
-        // World position this tile represents (CENTER of tile)
-        float tile_world_x = init_position.x + (tile_x * tile_world_size) + (tile_world_size / 2.0);
-        float tile_world_z = init_position.z + (tile_y * tile_world_size) + (tile_world_size / 2.0);
+        // World position of this tile's CENTER
+        float tile_world_x = init_position.x + (tile_x * tile_world_size);
+        float tile_world_z = init_position.z + (tile_y * tile_world_size);
         
-        // Offset from camera (in world units, then scaled to screen)
+        // Offset from camera to tile center (in world units, then scaled to screen)
         float offset_x = (tile_world_x - cam_pos.x) * minimap_zoom;
         float offset_z = (tile_world_z - cam_pos.z) * minimap_zoom;
         
         // Tile display size (world size scaled to screen)
         float display_size = tile_world_size * minimap_zoom;
         
-        // Position on screen (centered on calculated position)
+        // Position on screen (top-left corner of tile)
         Vector2 screen_pos;
         screen_pos.x = minimap_center.x + offset_x - (display_size / 2.0);
         screen_pos.y = minimap_center.y + offset_z - (display_size / 2.0);
