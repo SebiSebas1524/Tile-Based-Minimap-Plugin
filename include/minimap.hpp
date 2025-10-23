@@ -20,6 +20,16 @@ class Minimap : public Control {
 private:
     String folder_path;
     std::map<std::pair<int, int>, Ref<Texture2D>> tiles_textures_;
+    godot::Key load_map_key = KEY_M;
+    bool is_full_map_view = false;  
+    bool was_pressed = false;
+    float saved_zoom = 0.0f;
+    Rect2 saved_offsets = Rect2();
+    float saved_anchor_left = 0.0f;
+    float saved_anchor_top = 0.0f;
+    float saved_anchor_right = 0.0f;
+    float saved_anchor_bottom = 0.0f;
+
 
 
     // Keep track of tiles currently being loaded to avoid duplicate loads
@@ -53,6 +63,10 @@ public:
     void _thread_load_tile(int x, int y, String path);
     void on_tile_loaded(int x, int y, Ref<Texture2D> texture);
     
+    void reload_full_map();
+    void enter_full_map_view();
+    void exit_full_map_view();
+    bool get_is_full_map_view() const;
 
     // Getters and Setters
     int get_tile_amount_x() const;

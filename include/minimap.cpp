@@ -41,6 +41,11 @@ void Minimap::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_load_map_key"), &Minimap::get_load_map_key);
     ADD_PROPERTY(PropertyInfo(Variant::INT, "load_map_key"), "set_load_map_key", "get_load_map_key");
 
+    ClassDB::bind_method(D_METHOD("reload_full_map"), &Minimap::reload_full_map);
+    ClassDB::bind_method(D_METHOD("enter_full_map_view"), &Minimap::enter_full_map_view);
+    ClassDB::bind_method(D_METHOD("exit_full_map_view"), &Minimap::exit_full_map_view);
+    ClassDB::bind_method(D_METHOD("get_is_full_map_view"), &Minimap::get_is_full_map_view);
+
     ClassDB::bind_method(D_METHOD("_thread_load_tile", "x", "y", "path"), &Minimap::_thread_load_tile);
     ClassDB::bind_method(D_METHOD("on_tile_loaded", "x", "y", "texture"), &Minimap::on_tile_loaded);
 }
@@ -76,6 +81,25 @@ void Minimap::_ready() {
 }
 
 void Minimap::_process(double delta) {
+    Input *input = Input::get_singleton();
+    
+    bool is_key_pressed_now = input->is_key_pressed(load_map_key);
+
+    if (is_key_pressed_now && !was_pressed) {
+        if (!is_full_map_view) {
+            enter_full_map_view();
+        } else {
+            exit_full_map_view();
+        }
+        was_pressed = true;
+    } else if (!is_key_pressed_now && was_pressed) {
+        was_pressed = false;
+    }
+
+    // if (is_full_map_view) {
+    //     return;  // Skip camera tracking when in full map view
+    // }
+    
     Camera3D *cam = get_viewport()->get_camera_3d();
     if (!cam) return;
     
@@ -260,34 +284,102 @@ void Minimap::_draw() {
     draw_rect(Rect2(Vector2(0, 0), get_size()), Color(1, 1, 1, 0.5), false, 2.0);
 }
 
-void Minimap::load_tiles() {
-    UtilityFunctions::print("=== LOADING TILES ===");
+void Minimap::reload_full_map() {
+    {
+        std::lock_guard<std::mutex> lock(tiles_mutex_);
+        tiles_textures_.clear();
+    }
+    
+    {
+        std::lock_guard<std::mutex> lock(loading_mutex_);
+        tiles_being_loaded_.clear();
+    }
     
     for (int x = 0; x < tile_amount_x; x++) {
         for (int y = 0; y < tile_amount_y; y++) {
-            String path = vformat("res://tiles/tile_%d_%d.png", x, y);
-            
-            UtilityFunctions::print("Attempting to load: ", path);
-            
-            // Check if file exists first
-            if (!ResourceLoader::get_singleton()->exists(path)) {
-                UtilityFunctions::print("WARNING: File does not exist: ", path);
-                continue;
-            }
-            
-            Ref<Texture2D> tex = ResourceLoader::get_singleton()->load(path, "Texture2D");
-            
-            if (tex.is_valid()) {
-                tiles_textures_[std::make_pair(x, y)] = tex;
-                UtilityFunctions::print("Successfully loaded tile: ", path, " | Size: ", tex->get_size());
-            } else {
-                UtilityFunctions::print("ERROR: Failed to load texture: ", path);
-            }
+            load_single_tile_async(x, y);
         }
     }
+    
+    queue_redraw();
+    
+    UtilityFunctions::print("=== RELOADING FULL MAP ===");
+}
 
-    UtilityFunctions::print("Total tiles loaded: ", tiles_textures_.size());
-    UtilityFunctions::print("===================");
+void Minimap::enter_full_map_view() {
+    if (is_full_map_view) return;
+
+    is_full_map_view = true;
+
+
+
+    // Save current state
+    saved_zoom = minimap_zoom;
+    saved_offsets = get_rect();
+    saved_anchor_left = get_anchor(SIDE_LEFT);
+    saved_anchor_top = get_anchor(SIDE_TOP);
+    saved_anchor_right = get_anchor(SIDE_RIGHT);
+    saved_anchor_bottom = get_anchor(SIDE_BOTTOM);
+    
+    // Expand minimap to full screen
+    this->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
+    
+    // Calculate zoom to fit entire map
+    float total_world_width = tile_amount_x * tile_world_size;
+    float total_world_height = tile_amount_y * tile_world_size;
+    
+    float minimap_width = get_size().x;
+    float minimap_height = get_size().y;
+    
+    float zoom_x = minimap_width / total_world_width;
+    float zoom_y = minimap_height / total_world_height;
+    
+    float calculated_zoom = std::min(zoom_x, zoom_y) * 0.95f;
+    set_minimap_zoom(calculated_zoom);
+    
+    reload_full_map();
+
+    Input::get_singleton()->set_mouse_mode(Input::MOUSE_MODE_VISIBLE);
+
+    // Pause the scene tree (freezes all _process and _physics_process)
+    get_tree()->set_pause(true);
+    
+    // But keep THIS node processing so the minimap still works
+    set_process_mode(PROCESS_MODE_ALWAYS);
+    
+    UtilityFunctions::print("=== ENTERED FULL MAP VIEW ===");
+}
+
+void Minimap::exit_full_map_view() {
+    if (!is_full_map_view) return;
+    
+    is_full_map_view = false;
+    
+    // Restore saved anchors
+    set_anchor(SIDE_LEFT, saved_anchor_left);
+    set_anchor(SIDE_TOP, saved_anchor_top);
+    set_anchor(SIDE_RIGHT, saved_anchor_right);
+    set_anchor(SIDE_BOTTOM, saved_anchor_bottom);
+    
+    // Restore saved size and position
+    set_size(saved_offsets.size);
+    set_position(saved_offsets.position);
+    
+    // Restore saved zoom
+    set_minimap_zoom(saved_zoom);
+    
+    // Restore normal processing
+    get_tree()->set_pause(false);
+    set_process_mode(PROCESS_MODE_INHERIT);
+    
+
+    Input::get_singleton()->set_mouse_mode(Input::MOUSE_MODE_CAPTURED);
+    
+    UtilityFunctions::print("=== EXITED FULL MAP VIEW ===");
+}
+
+bool Minimap::get_is_full_map_view() const {
+    return is_full_map_view;
 }
 
 void Minimap::set_tile_amount_x(int amount) {
@@ -330,4 +422,12 @@ void Minimap::set_folder_path(const String &p_path) {
 }
 String Minimap::get_folder_path() const {
     return folder_path;
+}
+
+void Minimap::set_load_map_key(godot::Key p_key) {
+    load_map_key = p_key;
+}
+
+godot::Key Minimap::get_load_map_key() const {
+    return load_map_key;
 }
