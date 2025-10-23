@@ -4,6 +4,8 @@
 #include <godot_cpp/classes/control.hpp>
 #include <godot_cpp/classes/texture2d.hpp>
 #include <godot_cpp/classes/camera3d.hpp>
+#include <godot_cpp/classes/worker_thread_pool.hpp>
+#include <mutex>
 #include <map>
 #include <utility>
 
@@ -17,10 +19,14 @@ class Minimap : public Control {
 
 private:
     String folder_path;
-
     std::map<std::pair<int, int>, Ref<Texture2D>> tiles_textures_;
-    
-    std::set<std::pair<int, int>> available_tiles_on_disk_;
+
+
+    // Keep track of tiles currently being loaded to avoid duplicate loads
+    std::set<std::pair<int, int>> tiles_being_loaded_;
+    std::mutex tiles_mutex_;
+    std::mutex loading_mutex_;
+
     int tile_amount_x = 3;  
     int tile_amount_y = 3;
     float tile_world_size = 20.0; 
@@ -32,17 +38,23 @@ protected:
 
 public:
     Minimap();
+    ~Minimap();
     
     void _notification(int p_what); 
     void _ready();
     void _process(double delta);
     void update_visible_tiles(Camera3D *cam);
     void _draw();
-    void scan_available_tiles();
+
+    
     void load_single_tile(int x, int y);
     void unload_single_tile(int x, int y);
-    void load_tiles();
+    void load_single_tile_async(int x, int y);
+    void _thread_load_tile(int x, int y, String path);
+    void on_tile_loaded(int x, int y, Ref<Texture2D> texture);
+    
 
+    // Getters and Setters
     int get_tile_amount_x() const;
     void set_tile_amount_x(int amount);
     int get_tile_amount_y() const;
@@ -56,6 +68,8 @@ public:
 
     void set_folder_path(const String &p_path);
     String get_folder_path() const;
+    void set_load_map_key(godot::Key p_key);
+    godot::Key get_load_map_key() const;
 
 };
 

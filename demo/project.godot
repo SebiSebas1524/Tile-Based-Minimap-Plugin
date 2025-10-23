@@ -14,3 +14,10 @@ config/name="demo"
 run/main_scene="uid://bgre18n2cw8b"
 config/features=PackedStringArray("4.4", "Forward Plus")
 config/icon="res://icon.svg"
+
+[input]
+
+full_map_view={
+"deadzone": 0.5,
+"events": []
+}

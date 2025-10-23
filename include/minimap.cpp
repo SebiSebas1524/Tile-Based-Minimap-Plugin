@@ -6,13 +6,13 @@
 #include <godot_cpp/variant/vector2.hpp>
 #include <godot_cpp/variant/vector3.hpp>
 #include <godot_cpp/classes/viewport.hpp>
+#include <godot_cpp/classes/input.hpp>
+#include <godot_cpp/classes/scene_tree.hpp>
+#include <godot_cpp/classes/window.hpp>
 
 using namespace godot;
 
 void Minimap::_bind_methods() {
-    ClassDB::bind_method(D_METHOD("load_tiles"), &Minimap::load_tiles);
-
-
     ClassDB::bind_method(D_METHOD("set_tile_size", "size"), &Minimap::set_tile_size);
     ClassDB::bind_method(D_METHOD("get_tile_size"), &Minimap::get_tile_size);
     ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "tile_size"), "set_tile_size", "get_tile_size");
@@ -35,13 +35,23 @@ void Minimap::_bind_methods() {
 
     ClassDB::bind_method(D_METHOD("get_folder_path"), &Minimap::get_folder_path);
     ClassDB::bind_method(D_METHOD("set_folder_path", "path"), &Minimap::set_folder_path);
-
     ADD_PROPERTY(PropertyInfo(Variant::STRING, "folder_path", PROPERTY_HINT_DIR), "set_folder_path", "get_folder_path");
 
+    ClassDB::bind_method(D_METHOD("set_load_map_key", "key"), &Minimap::set_load_map_key);
+    ClassDB::bind_method(D_METHOD("get_load_map_key"), &Minimap::get_load_map_key);
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "load_map_key"), "set_load_map_key", "get_load_map_key");
+
+    ClassDB::bind_method(D_METHOD("_thread_load_tile", "x", "y", "path"), &Minimap::_thread_load_tile);
+    ClassDB::bind_method(D_METHOD("on_tile_loaded", "x", "y", "texture"), &Minimap::on_tile_loaded);
 }
 
 Minimap::Minimap() : folder_path("") {
     this->set_clip_contents(true);
+}
+
+Minimap::~Minimap() {
+    tiles_being_loaded_.clear();
+    tiles_textures_.clear();
 }
 
 void Minimap::_notification(int p_what) {
@@ -56,26 +66,30 @@ void Minimap::_notification(int p_what) {
 }
 
 void Minimap::_ready() {
-    
     UtilityFunctions::print("=== MINIMAP READY ===");
     set_process(true);
-    scan_available_tiles();
+    Camera3D *cam = get_viewport()->get_camera_3d();
+    if (!cam) return;
+    last_cam_pos = cam->get_global_position();
+    update_visible_tiles(cam);
     queue_redraw();
 }
 
 void Minimap::_process(double delta) {
     Camera3D *cam = get_viewport()->get_camera_3d();
     if (!cam) return;
-    if(cam->get_global_position() != last_cam_pos) {
-        last_cam_pos = cam->get_global_position();
+    
+    Vector3 current_pos = cam->get_global_position();
+    if(current_pos != last_cam_pos) {
+        last_cam_pos = current_pos;
         update_visible_tiles(cam);
+        queue_redraw();
     }
-    queue_redraw();
 }
-
 void Minimap::update_visible_tiles(Camera3D *cam) {
     
     Vector3 cam_pos = cam->get_global_position();
+
 
     Vector2 minimap_center = get_size() / 2.0;
     Rect2 minimap_rect(Vector2(0, 0), get_size());
@@ -95,30 +109,36 @@ void Minimap::update_visible_tiles(Camera3D *cam) {
     int tile_y_min = std::max(0, (int)floor((world_top - init_position.z) / tile_world_size) );
     int tile_y_max = std::min(tile_amount_y - 1, (int)ceil((world_bottom - init_position.z) / tile_world_size) );
     
-    UtilityFunctions::print("Tile range: X[", tile_x_min, "-", tile_x_max, "] Y[", tile_y_min, "-", tile_y_max, "]");
-
     std::set<std::pair<int, int>> tiles_in_view;
     
     // Only check tiles in the calculated range
     for (int x = tile_x_min; x <= tile_x_max; x++) {
         for (int y = tile_y_min; y <= tile_y_max; y++) {
             tiles_in_view.insert({x, y});
-            
-            if (tiles_textures_.find({x, y}) == tiles_textures_.end()) {
-                load_single_tile(x, y);
+
+            std::lock_guard<std::mutex> lock(tiles_mutex_);
+            std::lock_guard<std::mutex> loading_lock(loading_mutex_);
+       
+            bool is_loaded = tiles_textures_.find({x, y}) != tiles_textures_.end();
+            bool is_loading = tiles_being_loaded_.find({x, y}) != tiles_being_loaded_.end();
+            if (!is_loaded && !is_loading) {
+                load_single_tile_async(x, y);
+                
+                //Under here is the synchronous version
+                //load_single_tile(x, y);
             }
         }
     }
-
-    UtilityFunctions::print("Tiles should be visible: ", tiles_in_view.size());
-    UtilityFunctions::print("Tiles currently loaded: ", tiles_textures_.size());
     
     // Unload distant tiles
     std::vector<std::pair<int, int>> to_unload;
-    for (const auto& [tile_idx, tex] : tiles_textures_) {
-        if (tiles_in_view.find(tile_idx) == tiles_in_view.end()) {
-            to_unload.push_back(tile_idx);
-            UtilityFunctions::print("Marking for unload: ", tile_idx.first, ", ", tile_idx.second);
+    {
+        std::lock_guard<std::mutex> lock(tiles_mutex_);
+        for (const auto& [tile_idx, tex] : tiles_textures_) {
+            if (tiles_in_view.find(tile_idx) == tiles_in_view.end()) {
+                to_unload.push_back(tile_idx);
+                UtilityFunctions::print("Marking for unload: ", tile_idx.first, ", ", tile_idx.second);
+            }
         }
     }
     
@@ -143,36 +163,61 @@ void Minimap::load_single_tile(int x, int y) {
     Ref<Texture2D> tex = ResourceLoader::get_singleton()->load(path, "Texture2D");
     
     if (tex.is_valid()) {
-        tiles_textures_[{x, y}] = tex;  // ← ONLY loaded tiles go here
-        UtilityFunctions::print("Loaded tile: ", x, ", ", y);
+        tiles_textures_[{x, y}] = tex;
     }
 }
 
 // Unload a single tile
 void Minimap::unload_single_tile(int x, int y) {
+    std::lock_guard<std::mutex> lock(tiles_mutex_);
     auto it = tiles_textures_.find({x, y});
     if (it != tiles_textures_.end()) {
-          UtilityFunctions::print("Unloading tile: ", x, ", ", y);
-        tiles_textures_.erase(it);  // ← This should remove it
+        tiles_textures_.erase(it);
     } else {
         UtilityFunctions::print("Tried to unload non-existent tile: ", x, ", ", y);
     }
 }
 
-// Optional: Scan what tiles exist on disk (run once at startup)
-void Minimap::scan_available_tiles() {
-    available_tiles_on_disk_.clear();
-    
-    for (int x = 0; x < tile_amount_x; x++) {
-        for (int y = 0; y < tile_amount_y; y++) {
-            String path = vformat("%s/tile_%d_%d.png", folder_path, x, y);
-            if (ResourceLoader::get_singleton()->exists(path)) {
-                available_tiles_on_disk_.insert({x, y});
-            }
-        }
+void Minimap::load_single_tile_async(int x, int y) {
+    {
+        tiles_being_loaded_.insert({x, y});
     }
     
-    UtilityFunctions::print("Found ", available_tiles_on_disk_.size(), " tiles on disk");
+    String path = vformat("%s/tile_%d_%d.png", folder_path, x, y);
+    
+    Callable task = callable_mp(this, &Minimap::_thread_load_tile);
+    task = task.bind(x, y, path);
+    
+    WorkerThreadPool::get_singleton()->add_task(task, false, vformat("LoadTile_%d_%d", x, y));
+    
+    UtilityFunctions::print("Started async load for tile: ", x, ", ", y);
+}
+
+void Minimap::_thread_load_tile(int x, int y, String path) {
+    // This runs on background thread
+    Ref<Texture2D> tex;
+    
+    if (ResourceLoader::get_singleton()->exists(path)) {
+        tex = ResourceLoader::get_singleton()->load(path, "Texture2D");
+    }
+    
+    // Return to main thread
+    call_deferred("on_tile_loaded", x, y, tex);
+}
+
+void Minimap::on_tile_loaded(int x, int y, Ref<Texture2D> texture) {
+    {
+        std::lock_guard<std::mutex> lock(loading_mutex_);
+        tiles_being_loaded_.erase({x, y});
+    }
+    
+    if (texture.is_valid()) {
+        std::lock_guard<std::mutex> lock(tiles_mutex_);
+        tiles_textures_[{x, y}] = texture;
+        UtilityFunctions::print("Async loaded tile: ", x, ", ", y);
+    }
+        
+    queue_redraw();
 }
 
 void Minimap::_draw() {
@@ -182,6 +227,8 @@ void Minimap::_draw() {
     Vector3 cam_pos = cam->get_global_position();
     Vector2 minimap_center = get_size() / 2.0;
     
+    std::lock_guard<std::mutex> lock(tiles_mutex_);
+
     for (const auto& [index, tex] : tiles_textures_) {
         if (!tex.is_valid()) continue;
         
