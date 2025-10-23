@@ -96,9 +96,9 @@ void Minimap::_process(double delta) {
         was_pressed = false;
     }
 
-    // if (is_full_map_view) {
-    //     return;  // Skip camera tracking when in full map view
-    // }
+    if (is_full_map_view) {
+        return; 
+    }
     
     Camera3D *cam = get_viewport()->get_camera_3d();
     if (!cam) return;
@@ -110,6 +110,7 @@ void Minimap::_process(double delta) {
         queue_redraw();
     }
 }
+
 void Minimap::update_visible_tiles(Camera3D *cam) {
     
     Vector3 cam_pos = cam->get_global_position();
@@ -171,7 +172,6 @@ void Minimap::update_visible_tiles(Camera3D *cam) {
     }
 }
 
-// Load a single tile
 void Minimap::load_single_tile(int x, int y) {
     // Don't reload if already loaded
     if (tiles_textures_.find({x, y}) != tiles_textures_.end()) {
@@ -191,7 +191,6 @@ void Minimap::load_single_tile(int x, int y) {
     }
 }
 
-// Unload a single tile
 void Minimap::unload_single_tile(int x, int y) {
     std::lock_guard<std::mutex> lock(tiles_mutex_);
     auto it = tiles_textures_.find({x, y});
@@ -253,6 +252,24 @@ void Minimap::_draw() {
     
     std::lock_guard<std::mutex> lock(tiles_mutex_);
 
+    // Calculate the offset for the full map view
+    Vector2 map_offset;
+    if (is_full_map_view) {
+        // In full map view, calculate where the entire map should be rendered
+        float total_world_width = tile_amount_x * tile_world_size;
+        float total_world_height = tile_amount_y * tile_world_size;
+        
+        float display_width = total_world_width * minimap_zoom;
+        float display_height = total_world_height * minimap_zoom;
+        
+        // Map starts at init_position, render it at screen position
+        map_offset.x = (get_size().x - display_width) / 2.0;
+        map_offset.y = (get_size().y - display_height) / 2.0;
+    } else {
+        // In normal view, camera stays centered
+        map_offset = minimap_center;
+    }
+
     for (const auto& [index, tex] : tiles_textures_) {
         if (!tex.is_valid()) continue;
         
@@ -263,24 +280,42 @@ void Minimap::_draw() {
         float tile_world_x = init_position.x + (tile_x * tile_world_size);
         float tile_world_z = init_position.z + (tile_y * tile_world_size);
         
-        // Offset from camera to tile center (in world units, then scaled to screen)
-        float offset_x = (tile_world_x - cam_pos.x) * minimap_zoom;
-        float offset_z = (tile_world_z - cam_pos.z) * minimap_zoom;
-        
+        // Offset calculation depends on view mode
+        float offset_x, offset_z;
+        if (is_full_map_view) {
+            // In full map view, offset from map origin (init_position)
+            offset_x = (tile_world_x - init_position.x) * minimap_zoom;
+            offset_z = (tile_world_z - init_position.z) * minimap_zoom;
+        } else {
+            // In normal view, offset from camera position
+            offset_x = (tile_world_x - cam_pos.x) * minimap_zoom;
+            offset_z = (tile_world_z - cam_pos.z) * minimap_zoom;
+        }
+
         // Tile display size (world size scaled to screen)
         float display_size = tile_world_size * minimap_zoom;
         
         // Position on screen (top-left corner of tile)
         Vector2 screen_pos;
-        screen_pos.x = minimap_center.x + offset_x - (display_size / 2.0);
-        screen_pos.y = minimap_center.y + offset_z - (display_size / 2.0);
+        screen_pos.x = map_offset.x + offset_x - (display_size / 2.0);
+        screen_pos.y = map_offset.y + offset_z - (display_size / 2.0);
         
         Rect2 dest_rect(screen_pos, Vector2(display_size, display_size));
         
         draw_texture_rect(tex, dest_rect, false);
     }
     
-    draw_circle(minimap_center, 5.0, Color(0, 1, 0));
+    // Draw player position (not always in center)
+    Vector2 player_screen_pos;
+    if (is_full_map_view) {
+        //TODO: Calculate player position in full map view 
+
+        player_screen_pos = minimap_center; // Placeholder
+    } else {
+        player_screen_pos = minimap_center;
+    }
+    
+    draw_circle(player_screen_pos, 5.0, Color(0, 1, 0));
     draw_rect(Rect2(Vector2(0, 0), get_size()), Color(1, 1, 1, 0.5), false, 2.0);
 }
 
