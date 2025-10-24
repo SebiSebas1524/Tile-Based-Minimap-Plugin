@@ -42,7 +42,8 @@ private:
     float tile_world_size = 20.0; 
     float minimap_zoom = 6.0;  
     Vector3 init_position = Vector3(0, 0, 0);
-    Vector3 last_cam_pos = Vector3(999999, 999999, 999999);
+    Vector3 last_cam_pos = Vector3(0, 0, 0);
+    float last_cam_yaw = 0.0f;
 protected:
     static void _bind_methods();
 

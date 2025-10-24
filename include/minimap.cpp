@@ -102,11 +102,21 @@ void Minimap::_process(double delta) {
     
     Camera3D *cam = get_viewport()->get_camera_3d();
     if (!cam) return;
-    
+
     Vector3 current_pos = cam->get_global_position();
-    if(current_pos != last_cam_pos) {
+    
+    // Track both position AND rotation changes
+    float current_yaw = cam->get_global_transform().basis.get_euler().y;
+    bool position_changed = (current_pos != last_cam_pos);
+    bool rotation_changed = (current_yaw != last_cam_yaw);
+    
+    if (position_changed) {
         last_cam_pos = current_pos;
         update_visible_tiles(cam);
+    }
+    
+    if (position_changed || rotation_changed) {
+        last_cam_yaw = current_yaw;
         queue_redraw();
     }
 }
@@ -255,20 +265,23 @@ void Minimap::_draw() {
     // Calculate the offset for the full map view
     Vector2 map_offset;
     if (is_full_map_view) {
-        // In full map view, calculate where the entire map should be rendered
         float total_world_width = tile_amount_x * tile_world_size;
         float total_world_height = tile_amount_y * tile_world_size;
         
         float display_width = total_world_width * minimap_zoom;
         float display_height = total_world_height * minimap_zoom;
         
-        // Map starts at init_position, render it at screen position
         map_offset.x = (get_size().x - display_width) / 2.0;
         map_offset.y = (get_size().y - display_height) / 2.0;
     } else {
-        // In normal view, camera stays centered
         map_offset = minimap_center;
     }
+
+    // Get camera rotation (yaw only, around Y axis)
+    // In full map view, don't rotate - keep map centered
+    float camera_yaw = is_full_map_view ? 0.0f : cam->get_global_transform().basis.get_euler().y;
+    float cos_yaw = cos(camera_yaw);
+    float sin_yaw = sin(camera_yaw);
 
     for (const auto& [index, tex] : tiles_textures_) {
         if (!tex.is_valid()) continue;
@@ -292,25 +305,46 @@ void Minimap::_draw() {
             offset_z = (tile_world_z - cam_pos.z) * minimap_zoom;
         }
 
+        // Rotate offset based on camera yaw
+        float rotated_x = offset_x * cos_yaw - offset_z * sin_yaw;
+        float rotated_z = offset_x * sin_yaw + offset_z * cos_yaw;
+
         // Tile display size (world size scaled to screen)
         float display_size = tile_world_size * minimap_zoom;
         
-        // Position on screen (top-left corner of tile)
-        Vector2 screen_pos;
-        screen_pos.x = map_offset.x + offset_x - (display_size / 2.0);
-        screen_pos.y = map_offset.y + offset_z - (display_size / 2.0);
+        // Position on screen (center of tile)
+        Vector2 tile_center;
+        tile_center.x = map_offset.x + rotated_x;
+        tile_center.y = map_offset.y + rotated_z;
         
-        Rect2 dest_rect(screen_pos, Vector2(display_size, display_size));
+        // Draw rotated tile
+        draw_set_transform(tile_center, camera_yaw, Vector2(1, 1));
         
+        Rect2 dest_rect(Vector2(-display_size / 2.0, -display_size / 2.0), Vector2(display_size, display_size));
         draw_texture_rect(tex, dest_rect, false);
+        
+        // Reset transform
+        draw_set_transform(Vector2(0, 0), 0, Vector2(1, 1));
     }
     
-    // Draw player position (not always in center)
+    // Draw player position
     Vector2 player_screen_pos;
     if (is_full_map_view) {
-        //TODO: Calculate player position in full map view 
-
-        player_screen_pos = minimap_center; // Placeholder
+        // Calculate player position in full map view
+        float player_offset_x = (cam_pos.x - init_position.x) * minimap_zoom;
+        float player_offset_z = (cam_pos.z - init_position.z) * minimap_zoom;
+        
+        // Rotate player position
+        float rotated_player_x = player_offset_x * cos_yaw - player_offset_z * sin_yaw;
+        float rotated_player_z = player_offset_x * sin_yaw + player_offset_z * cos_yaw;
+        
+        float total_world_width = tile_amount_x * tile_world_size;
+        float total_world_height = tile_amount_y * tile_world_size;
+        float display_width = total_world_width * minimap_zoom;
+        float display_height = total_world_height * minimap_zoom;
+        
+        player_screen_pos.x = (get_size().x - display_width) / 2.0 + rotated_player_x;
+        player_screen_pos.y = (get_size().y - display_height) / 2.0 + rotated_player_z;
     } else {
         player_screen_pos = minimap_center;
     }
@@ -318,6 +352,8 @@ void Minimap::_draw() {
     draw_circle(player_screen_pos, 5.0, Color(0, 1, 0));
     draw_rect(Rect2(Vector2(0, 0), get_size()), Color(1, 1, 1, 0.5), false, 2.0);
 }
+
+
 
 void Minimap::reload_full_map() {
     {
