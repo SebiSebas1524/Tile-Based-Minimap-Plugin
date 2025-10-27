@@ -8,7 +8,7 @@
 
 #include "tile_tool_creator.hpp"
 #include "minimap.hpp"
-#include "blip.hpp"
+#include "blip_manager.hpp"
 #include "tile_capture_visualizer.hpp"
 
 using namespace godot;
@@ -32,7 +32,7 @@ void initialize_tbm_plugin(ModuleInitializationLevel p_level)
         return;
     }
 
-    GDREGISTER_CLASS(Blip);
+    GDREGISTER_CLASS(BlipManager);
     GDREGISTER_CLASS(Minimap);
     
 

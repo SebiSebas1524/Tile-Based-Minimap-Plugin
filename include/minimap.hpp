@@ -5,12 +5,10 @@
 #include <godot_cpp/classes/texture2d.hpp>
 #include <godot_cpp/classes/camera3d.hpp>
 #include <godot_cpp/classes/worker_thread_pool.hpp>
-#include <blip.hpp>
+#include <blip_manager.hpp>
 #include <mutex>
 #include <map>
 #include <utility>
-
-
 
 using namespace godot;
 
@@ -37,8 +35,7 @@ private:
     std::mutex tiles_mutex_;
     std::mutex loading_mutex_;
 
-    TypedArray<Object> blips;
-    std::mutex blips_mutex_;
+    BlipManager* blip_manager = nullptr;
 
     int tile_amount_x = 3;  
     int tile_amount_y = 3;
@@ -69,6 +66,8 @@ public:
     void _thread_load_tile(int x, int y, String path);
     void on_tile_loaded(int x, int y, Ref<Texture2D> texture);
     
+    void set_blip_manager(BlipManager* p_manager);
+    BlipManager* get_blip_manager() const;
 
     void reload_full_map();
     void enter_full_map_view();

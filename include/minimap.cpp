@@ -49,10 +49,10 @@ void Minimap::_bind_methods() {
     ClassDB::bind_method(D_METHOD("_thread_load_tile", "x", "y", "path"), &Minimap::_thread_load_tile);
     ClassDB::bind_method(D_METHOD("on_tile_loaded", "x", "y", "texture"), &Minimap::on_tile_loaded);
     
-    ClassDB::bind_method(D_METHOD("register_blip_nodes", "parent"), &Minimap::register_blip_nodes);
-    ClassDB::bind_method(D_METHOD("set_blips", "blips"), &Minimap::set_blips);
-    ClassDB::bind_method(D_METHOD("get_blips"), &Minimap::get_blips);
-    ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "blips", PROPERTY_HINT_TYPE_STRING, "Node3D"), "set_blips", "get_blips");
+    ClassDB::bind_method(D_METHOD("set_blip_manager", "manager"), &Minimap::set_blip_manager);
+    ClassDB::bind_method(D_METHOD("get_blip_manager"), &Minimap::get_blip_manager);
+    ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "blip_manager", PROPERTY_HINT_NODE_TYPE, "BlipManager"), 
+                 "set_blip_manager", "get_blip_manager");
 }
 
 Minimap::Minimap() : folder_path("") {
@@ -78,12 +78,25 @@ void Minimap::_notification(int p_what) {
 void Minimap::_ready() {
     UtilityFunctions::print("=== MINIMAP READY ===");
     set_process(true);
+    
+    if (!blip_manager) {
+       blip_manager = get_node<BlipManager>("../BlipManager");
+    }
+    if (!blip_manager) {
+        UtilityFunctions::push_warning("BlipManager not found!");
+    }
+
     Camera3D *cam = get_viewport()->get_camera_3d();
-    if (!cam) return;
-    last_cam_pos = cam->get_global_position();
-    update_visible_tiles(cam);
-    register_blip_nodes(this);
-    queue_redraw();
+    if (!cam) {
+        UtilityFunctions::push_warning("Camera not found yet");
+        return;
+    }
+    
+    if (cam->is_inside_tree()) {
+        last_cam_pos = cam->get_global_position();
+        update_visible_tiles(cam);
+        queue_redraw();
+    }
 }
 
 void Minimap::_process(double delta) {
@@ -283,8 +296,6 @@ void Minimap::_draw() {
         map_offset = minimap_center;
     }
 
-    // Get camera rotation (yaw only, around Y axis)
-    // In full map view, don't rotate - keep map centered
     float camera_yaw = is_full_map_view ? 0.0f : cam->get_global_transform().basis.get_euler().y;
     float cos_yaw = cos(camera_yaw);
     float sin_yaw = sin(camera_yaw);
@@ -295,52 +306,41 @@ void Minimap::_draw() {
         int tile_x = index.first;   
         int tile_y = index.second;
         
-        // World position of this tile's CENTER
         float tile_world_x = init_position.x + (tile_x * tile_world_size);
         float tile_world_z = init_position.z + (tile_y * tile_world_size);
         
-        // Offset calculation depends on view mode
         float offset_x, offset_z;
         if (is_full_map_view) {
-            // In full map view, offset from map origin (init_position)
             offset_x = (tile_world_x - init_position.x) * minimap_zoom;
             offset_z = (tile_world_z - init_position.z) * minimap_zoom;
         } else {
-            // In normal view, offset from camera position
             offset_x = (tile_world_x - cam_pos.x) * minimap_zoom;
             offset_z = (tile_world_z - cam_pos.z) * minimap_zoom;
         }
 
-        // Rotate offset based on camera yaw
         float rotated_x = offset_x * cos_yaw - offset_z * sin_yaw;
         float rotated_z = offset_x * sin_yaw + offset_z * cos_yaw;
 
-        // Tile display size (world size scaled to screen)
         float display_size = tile_world_size * minimap_zoom;
         
-        // Position on screen (center of tile)
         Vector2 tile_center;
         tile_center.x = map_offset.x + rotated_x;
         tile_center.y = map_offset.y + rotated_z;
         
-        // Draw rotated tile
         draw_set_transform(tile_center, camera_yaw, Vector2(1, 1));
         
         Rect2 dest_rect(Vector2(-display_size / 2.0, -display_size / 2.0), Vector2(display_size, display_size));
         draw_texture_rect(tex, dest_rect, false);
         
-        // Reset transform
         draw_set_transform(Vector2(0, 0), 0, Vector2(1, 1));
     }
     
     // Draw player position
     Vector2 player_screen_pos;
     if (is_full_map_view) {
-        // Calculate player position in full map view
         float player_offset_x = (cam_pos.x - init_position.x) * minimap_zoom;
         float player_offset_z = (cam_pos.z - init_position.z) * minimap_zoom;
         
-        // Rotate player position
         float rotated_player_x = player_offset_x * cos_yaw - player_offset_z * sin_yaw;
         float rotated_player_z = player_offset_x * sin_yaw + player_offset_z * cos_yaw;
         
@@ -357,22 +357,40 @@ void Minimap::_draw() {
     
     draw_circle(player_screen_pos, 5.0, Color(0, 1, 0));
 
-   {
-    std::lock_guard<std::mutex> lock(blips_mutex_);
-    for (int i = 0; i < blips.size(); i++) {
-        Blip* blip = Object::cast_to<Blip>(blips[i]);
-        if (!blip) continue;
+    // Draw blips using BlipManager
+    if (blip_manager) {
+        // Calculate visible world bounds
+        float world_half_width = (get_size().x / 2.0) / minimap_zoom;
+        float world_half_height = (get_size().y / 2.0) / minimap_zoom;
         
-        Vector3 blip_world_pos = blip->get_global_position();
-        Vector2 init_pos_2d = Vector2(init_position.x, init_position.z);
-        Vector2 blip_pos_2d = Vector2(blip_world_pos.x, blip_world_pos.z);
+        Vector2 cam_pos_2d = Vector2(cam_pos.x, cam_pos.z);
         
-        Vector2 minimap_pos = (blip_pos_2d - init_pos_2d) * minimap_zoom;
-        draw_circle(minimap_pos, blip->get_size() * minimap_zoom, blip->get_color());
-    }
+        Array visible_blips = blip_manager->get_visible_blips(
+            cam_pos_2d,
+            world_half_width * 2.0,
+            world_half_height * 2.0
+        );
+        
+        for (int i = 0; i < visible_blips.size(); i++) {
+            Dictionary blip_data = visible_blips[i];
+            Vector2 blip_pos = blip_data["position"];
+            Color blip_color = blip_data["color"];
+            float blip_size = blip_data["size"];
+            
+            Vector2 init_pos_2d = Vector2(init_position.x, init_position.z);
+            Vector2 minimap_pos = (blip_pos - init_pos_2d) * minimap_zoom;
+            
+            // Apply rotation and offset
+            Vector2 relative_pos = minimap_pos - minimap_center;
+            float rotated_blip_x = relative_pos.x * cos_yaw - relative_pos.y * sin_yaw;
+            float rotated_blip_z = relative_pos.x * sin_yaw + relative_pos.y * cos_yaw;
+            
+            Vector2 screen_pos = map_offset + Vector2(rotated_blip_x, rotated_blip_z);
+            
+            draw_circle(screen_pos, blip_size * minimap_zoom, blip_color);
+        }
     }
 
-    // Draw minimap border
     draw_rect(Rect2(Vector2(0, 0), get_size()), Color(1, 1, 1, 0.5), false, 2.0);
 }
 
@@ -521,26 +539,9 @@ void Minimap::set_load_map_key(godot::Key p_key) {
 godot::Key Minimap::get_load_map_key() const {
     return load_map_key;
 }
-void Minimap::set_blips(TypedArray<Object> p_blips) {
-    blips = p_blips;
-    queue_redraw();
+void Minimap::set_blip_manager(BlipManager* p_manager) {
+    blip_manager = p_manager;
 }
-
-TypedArray<Object> Minimap::get_blips() const {
-    return blips;
-}
-
-void Minimap::register_blip_nodes(Node* p_parent) {
-    for (int i = 0; i < p_parent->get_child_count(); i++) {
-        Node* child = p_parent->get_child(i);
-        
-        Blip* blip = Object::cast_to<Blip>(child);
-        if (blip) {
-            std::lock_guard<std::mutex> lock(blips_mutex_);
-            blips.append(blip);
-        }
-        
-        // Recursively check children
-        register_blip_nodes(child);
-    }
+BlipManager* Minimap::get_blip_manager() const {
+    return blip_manager;
 }
