@@ -33,8 +33,20 @@ offset_top = -300.0
 offset_right = 300.0
 grow_vertical = 0
 
+[node name="Blip" type="Blip" parent="Minimap"]
+world_position = Vector2(7.576, -4.578)
+color = Color(1, 0, 1, 1)
+size = 4.0
+blip_id = 414
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.57596, 0, -4.57751)
+
+[node name="Blip2" type="Blip" parent="Minimap"]
+world_position = Vector2(2.899, -4.137)
+color = Color(0, 1, 0, 1)
+size = 2.0
+blip_id = 696
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.89932, 0, -4.13712)
+
 [node name="TileCaptureVisualizer" type="TileCaptureVisualizer" parent="."]
-tile_amount_x = 10
 init_position = Vector3(-20, 0, -25)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, 0, -25)
-visible = false

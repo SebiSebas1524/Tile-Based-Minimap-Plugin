@@ -48,6 +48,11 @@ void Minimap::_bind_methods() {
 
     ClassDB::bind_method(D_METHOD("_thread_load_tile", "x", "y", "path"), &Minimap::_thread_load_tile);
     ClassDB::bind_method(D_METHOD("on_tile_loaded", "x", "y", "texture"), &Minimap::on_tile_loaded);
+    
+    ClassDB::bind_method(D_METHOD("register_blip_nodes", "parent"), &Minimap::register_blip_nodes);
+    ClassDB::bind_method(D_METHOD("set_blips", "blips"), &Minimap::set_blips);
+    ClassDB::bind_method(D_METHOD("get_blips"), &Minimap::get_blips);
+    ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "blips", PROPERTY_HINT_TYPE_STRING, "Node3D"), "set_blips", "get_blips");
 }
 
 Minimap::Minimap() : folder_path("") {
@@ -77,6 +82,7 @@ void Minimap::_ready() {
     if (!cam) return;
     last_cam_pos = cam->get_global_position();
     update_visible_tiles(cam);
+    register_blip_nodes(this);
     queue_redraw();
 }
 
@@ -350,10 +356,25 @@ void Minimap::_draw() {
     }
     
     draw_circle(player_screen_pos, 5.0, Color(0, 1, 0));
+
+   {
+    std::lock_guard<std::mutex> lock(blips_mutex_);
+    for (int i = 0; i < blips.size(); i++) {
+        Blip* blip = Object::cast_to<Blip>(blips[i]);
+        if (!blip) continue;
+        
+        Vector3 blip_world_pos = blip->get_global_position();
+        Vector2 init_pos_2d = Vector2(init_position.x, init_position.z);
+        Vector2 blip_pos_2d = Vector2(blip_world_pos.x, blip_world_pos.z);
+        
+        Vector2 minimap_pos = (blip_pos_2d - init_pos_2d) * minimap_zoom;
+        draw_circle(minimap_pos, blip->get_size() * minimap_zoom, blip->get_color());
+    }
+    }
+
+    // Draw minimap border
     draw_rect(Rect2(Vector2(0, 0), get_size()), Color(1, 1, 1, 0.5), false, 2.0);
 }
-
-
 
 void Minimap::reload_full_map() {
     {
@@ -494,11 +515,32 @@ void Minimap::set_folder_path(const String &p_path) {
 String Minimap::get_folder_path() const {
     return folder_path;
 }
-
 void Minimap::set_load_map_key(godot::Key p_key) {
     load_map_key = p_key;
 }
-
 godot::Key Minimap::get_load_map_key() const {
     return load_map_key;
+}
+void Minimap::set_blips(TypedArray<Object> p_blips) {
+    blips = p_blips;
+    queue_redraw();
+}
+
+TypedArray<Object> Minimap::get_blips() const {
+    return blips;
+}
+
+void Minimap::register_blip_nodes(Node* p_parent) {
+    for (int i = 0; i < p_parent->get_child_count(); i++) {
+        Node* child = p_parent->get_child(i);
+        
+        Blip* blip = Object::cast_to<Blip>(child);
+        if (blip) {
+            std::lock_guard<std::mutex> lock(blips_mutex_);
+            blips.append(blip);
+        }
+        
+        // Recursively check children
+        register_blip_nodes(child);
+    }
 }

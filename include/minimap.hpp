@@ -5,6 +5,7 @@
 #include <godot_cpp/classes/texture2d.hpp>
 #include <godot_cpp/classes/camera3d.hpp>
 #include <godot_cpp/classes/worker_thread_pool.hpp>
+#include <blip.hpp>
 #include <mutex>
 #include <map>
 #include <utility>
@@ -18,6 +19,7 @@ class Minimap : public Control {
     GDCLASS(Minimap, Control)
 
 private:
+
     String folder_path;
     std::map<std::pair<int, int>, Ref<Texture2D>> tiles_textures_;
     godot::Key load_map_key = KEY_M;
@@ -30,12 +32,13 @@ private:
     float saved_anchor_right = 0.0f;
     float saved_anchor_bottom = 0.0f;
 
-
-
     // Keep track of tiles currently being loaded to avoid duplicate loads
     std::set<std::pair<int, int>> tiles_being_loaded_;
     std::mutex tiles_mutex_;
     std::mutex loading_mutex_;
+
+    TypedArray<Object> blips;
+    std::mutex blips_mutex_;
 
     int tile_amount_x = 3;  
     int tile_amount_y = 3;
@@ -44,6 +47,8 @@ private:
     Vector3 init_position = Vector3(0, 0, 0);
     Vector3 last_cam_pos = Vector3(0, 0, 0);
     float last_cam_yaw = 0.0f;
+
+
 protected:
     static void _bind_methods();
 
@@ -64,6 +69,7 @@ public:
     void _thread_load_tile(int x, int y, String path);
     void on_tile_loaded(int x, int y, Ref<Texture2D> texture);
     
+
     void reload_full_map();
     void enter_full_map_view();
     void exit_full_map_view();
@@ -86,6 +92,9 @@ public:
     void set_load_map_key(godot::Key p_key);
     godot::Key get_load_map_key() const;
 
+    void set_blips(TypedArray<Object> p_blips);
+    TypedArray<Object> get_blips() const;
+    void register_blip_nodes(Node* p_parent);
 };
 
 #endif
