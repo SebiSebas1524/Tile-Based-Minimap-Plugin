@@ -1,5 +1,6 @@
 #include "minimap.hpp"
 #include <godot_cpp/core/class_db.hpp>
+#include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/image_texture.hpp>
@@ -85,7 +86,7 @@ void Minimap::_ready() {
     if (!blip_manager) {
         UtilityFunctions::push_warning("BlipManager not found!");
     }
-
+    
     Camera3D *cam = get_viewport()->get_camera_3d();
     if (!cam) {
         UtilityFunctions::push_warning("Camera not found yet");
@@ -100,6 +101,10 @@ void Minimap::_ready() {
 }
 
 void Minimap::_process(double delta) {
+ if (Engine::get_singleton()->is_editor_hint()) {
+        return;
+    }
+
     Input *input = Input::get_singleton();
     
     bool is_key_pressed_now = input->is_key_pressed(load_map_key);
@@ -335,28 +340,7 @@ void Minimap::_draw() {
         draw_set_transform(Vector2(0, 0), 0, Vector2(1, 1));
     }
     
-    // Draw player position
-    Vector2 player_screen_pos;
-    if (is_full_map_view) {
-        float player_offset_x = (cam_pos.x - init_position.x) * minimap_zoom;
-        float player_offset_z = (cam_pos.z - init_position.z) * minimap_zoom;
-        
-        float rotated_player_x = player_offset_x * cos_yaw - player_offset_z * sin_yaw;
-        float rotated_player_z = player_offset_x * sin_yaw + player_offset_z * cos_yaw;
-        
-        float total_world_width = tile_amount_x * tile_world_size;
-        float total_world_height = tile_amount_y * tile_world_size;
-        float display_width = total_world_width * minimap_zoom;
-        float display_height = total_world_height * minimap_zoom;
-        
-        player_screen_pos.x = (get_size().x - display_width) / 2.0 + rotated_player_x;
-        player_screen_pos.y = (get_size().y - display_height) / 2.0 + rotated_player_z;
-    } else {
-        player_screen_pos = minimap_center;
-    }
     
-    draw_circle(player_screen_pos, 5.0, Color(0, 1, 0));
-
     // Draw blips using BlipManager
     if (blip_manager) {
         // Calculate visible world bounds
@@ -371,38 +355,73 @@ void Minimap::_draw() {
             world_half_height * 2.0
         );
         
+        UtilityFunctions::print("Visible blips: ", visible_blips.size());
+        
         for (int i = 0; i < visible_blips.size(); i++) {
             Dictionary blip_data = visible_blips[i];
             Vector2 blip_pos = blip_data["position"];
             Color blip_color = blip_data["color"];
             float blip_size = blip_data["size"];
             
-            Vector2 init_pos_2d = Vector2(init_position.x, init_position.z);
-            Vector2 minimap_pos = (blip_pos - init_pos_2d) * minimap_zoom;
+            float offset_x, offset_z;
+            if (is_full_map_view) {
+                offset_x = (blip_pos.x - init_position.x) * minimap_zoom;
+                offset_z = (blip_pos.y - init_position.z) * minimap_zoom;
+            } else {
+                offset_x = (blip_pos.x - cam_pos.x) * minimap_zoom;
+                offset_z = (blip_pos.y - cam_pos.z) * minimap_zoom;
+            }
             
-            // Apply rotation and offset
-            Vector2 relative_pos = minimap_pos - minimap_center;
-            float rotated_blip_x = relative_pos.x * cos_yaw - relative_pos.y * sin_yaw;
-            float rotated_blip_z = relative_pos.x * sin_yaw + relative_pos.y * cos_yaw;
+            float rotated_blip_x = offset_x * cos_yaw - offset_z * sin_yaw;
+            float rotated_blip_z = offset_x * sin_yaw + offset_z * cos_yaw;
             
             Vector2 screen_pos = map_offset + Vector2(rotated_blip_x, rotated_blip_z);
             
-            draw_circle(screen_pos, blip_size * minimap_zoom, blip_color);
+            // Bounds check
+            Vector2 minimap_size = get_size();
+            if (screen_pos.x < 0 || screen_pos.x > minimap_size.x ||
+                screen_pos.y < 0 || screen_pos.y > minimap_size.y) {
+                    continue; 
+                }
+                
+                    draw_circle(screen_pos, blip_size * minimap_zoom, blip_color);
+            }
         }
-    }
-
-    draw_rect(Rect2(Vector2(0, 0), get_size()), Color(1, 1, 1, 0.5), false, 2.0);
-}
-
-void Minimap::reload_full_map() {
-    {
-        std::lock_guard<std::mutex> lock(tiles_mutex_);
-        tiles_textures_.clear();
+        
+        // Draw player position
+        Vector2 player_screen_pos;
+        if (is_full_map_view) {
+            float player_offset_x = (cam_pos.x - init_position.x) * minimap_zoom;
+            float player_offset_z = (cam_pos.z - init_position.z) * minimap_zoom;
+            
+            float rotated_player_x = player_offset_x * cos_yaw - player_offset_z * sin_yaw;
+            float rotated_player_z = player_offset_x * sin_yaw + player_offset_z * cos_yaw;
+            
+            float total_world_width = tile_amount_x * tile_world_size;
+            float total_world_height = tile_amount_y * tile_world_size;
+            float display_width = total_world_width * minimap_zoom;
+            float display_height = total_world_height * minimap_zoom;
+            
+            player_screen_pos.x = (get_size().x - display_width) / 2.0 + rotated_player_x;
+            player_screen_pos.y = (get_size().y - display_height) / 2.0 + rotated_player_z;
+        } else {
+            player_screen_pos = minimap_center;
+        }
+        
+        draw_circle(player_screen_pos, 5.0, Color(0, 1, 0));
+        
+        draw_rect(Rect2(Vector2(0, 0), get_size()), Color(1, 1, 1, 0.5), false, 2.0);
     }
     
-    {
-        std::lock_guard<std::mutex> lock(loading_mutex_);
-        tiles_being_loaded_.clear();
+    void Minimap::reload_full_map() {
+        {
+            std::lock_guard<std::mutex> lock(tiles_mutex_);
+            tiles_textures_.clear();
+        }
+        
+        {
+            std::lock_guard<std::mutex> lock(loading_mutex_);
+            tiles_being_loaded_.clear();
     }
     
     for (int x = 0; x < tile_amount_x; x++) {

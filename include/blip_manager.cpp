@@ -8,7 +8,7 @@ void BlipManager::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "blips_config", PROPERTY_HINT_ARRAY_TYPE, "Dictionary"), 
                  "set_blips_config", "get_blips_config");
     
-    ClassDB::bind_method(D_METHOD("create_blip", "position", "color", "size"), &BlipManager::create_blip);
+    ClassDB::bind_method(D_METHOD("create_color_blip", "position", "color", "size"), &BlipManager::create_color_blip);
     ClassDB::bind_method(D_METHOD("set_blip_position", "blip_id", "position"), &BlipManager::set_blip_position);
     ClassDB::bind_method(D_METHOD("set_blip_color", "blip_id", "color"), &BlipManager::set_blip_color);
     ClassDB::bind_method(D_METHOD("set_blip_size", "blip_id", "size"), &BlipManager::set_blip_size);
@@ -110,7 +110,7 @@ void BlipManager::update_spatial_index(int blip_id, Vector2 old_pos, Vector2 new
     }
 }
 
-int BlipManager::create_blip(Vector2 p_pos, Color p_color, float p_size) {
+int BlipManager::create_color_blip(Vector2 p_pos, Color p_color, float p_size) {
     std::lock_guard<std::mutex> lock(blips_mutex_);
     
     int blip_id = next_blip_id_++;
@@ -243,6 +243,7 @@ Dictionary BlipManager::get_blip(int p_blip_id) {
 }
 
 int BlipManager::get_blip_count(){
+
     std::lock_guard<std::mutex> lock(blips_mutex_);
     return blips_data_.size();
 }

@@ -3,6 +3,7 @@
 
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/ref.hpp>
+#include <godot_cpp/classes/resource.hpp>
 #include <godot_cpp/variant/vector2.hpp>
 #include <godot_cpp/variant/color.hpp>
 #include <vector>
@@ -17,12 +18,6 @@ struct BlipData {
     Color color;
     float size;
     bool visible;
-};
-
-struct BlipConfig {
-    Vector2 position = Vector2(0, 0);
-    Color color = Color(1, 1, 1);
-    float size = 1.0f;
 };
 
 class BlipManager : public Node {
@@ -60,8 +55,7 @@ public:
     Array get_blips_config() const;
     
     // Create a new blip
-    int create_blip(Vector2 p_pos, Color p_color, float p_size);
-    
+    int create_color_blip(Vector2 p_pos, Color p_color, float p_size);
     // Update blip position
     void set_blip_position(int p_blip_id, Vector2 p_pos);
     
