@@ -97,7 +97,6 @@ protected:
 
 private:
     Vector<Button*> buttons; // Store buttons to enable/disable them during operations
-
 public:
     TileCaptureVisualizerInspectorPlugin();
     

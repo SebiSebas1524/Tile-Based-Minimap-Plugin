@@ -338,7 +338,7 @@ bool TileCaptureVisualizerInspectorPlugin::_can_handle(Object* object) const {
 void TileCaptureVisualizerInspectorPlugin::_parse_begin(Object* object) {
     TileCaptureVisualizer* visualizer = Object::cast_to<TileCaptureVisualizer>(object);
     if (!visualizer) return;
-    
+
     Button* generate_btn = memnew(Button);
     generate_btn->set_text("Generate Tiles");
     generate_btn->connect("pressed", Callable(visualizer, "generate_tiles"));
@@ -349,10 +349,16 @@ void TileCaptureVisualizerInspectorPlugin::_parse_begin(Object* object) {
     reset_btn->connect("pressed", Callable(visualizer, "reset_to_defaults"));
     add_custom_control(reset_btn);
     
-    // Connect signals and bind the specific button
-    visualizer->connect("operation_started", Callable(this, "_on_operation_started").bind(generate_btn));
-    visualizer->connect("operation_finished", Callable(this, "_on_operation_finished").bind(generate_btn));
+    if (visualizer->is_connected("operation_started", Callable(this, "_on_operation_started"))) {
+        visualizer->disconnect("operation_started", Callable(this, "_on_operation_started"));
+    }
+    if (visualizer->is_connected("operation_finished", Callable(this, "_on_operation_finished"))) {
+        visualizer->disconnect("operation_finished", Callable(this, "_on_operation_finished"));
+    }
     
+    visualizer->connect("operation_started", Callable(this, "_on_operation_started"));
+    visualizer->connect("operation_finished", Callable(this, "_on_operation_finished"));
+
     // Store all buttons for disabling/enabling them all
     buttons.push_back(generate_btn);
     buttons.push_back(reset_btn);
