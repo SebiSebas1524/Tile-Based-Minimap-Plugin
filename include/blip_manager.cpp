@@ -3,12 +3,10 @@
 #include <godot_cpp/core/class_db.hpp>
 
 void BlipManager::_bind_methods() {
-    ClassDB::bind_method(D_METHOD("set_blips_config", "config"), &BlipManager::set_blips_config);
-    ClassDB::bind_method(D_METHOD("get_blips_config"), &BlipManager::get_blips_config);
-    ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "blips_config", PROPERTY_HINT_ARRAY_TYPE, "Dictionary"), 
-                 "set_blips_config", "get_blips_config");
     
     ClassDB::bind_method(D_METHOD("create_color_blip", "position", "color", "size"), &BlipManager::create_color_blip);
+    ClassDB::bind_method(D_METHOD("create_icon_blip", "position", "icon", "size"), &BlipManager::create_icon_blip);
+    ClassDB::bind_method(D_METHOD("set_blip_icon", "blip_id", "icon"), &BlipManager::set_blip_icon);
     ClassDB::bind_method(D_METHOD("set_blip_position", "blip_id", "position"), &BlipManager::set_blip_position);
     ClassDB::bind_method(D_METHOD("set_blip_color", "blip_id", "color"), &BlipManager::set_blip_color);
     ClassDB::bind_method(D_METHOD("set_blip_size", "blip_id", "size"), &BlipManager::set_blip_size);
@@ -26,65 +24,6 @@ BlipManager::BlipManager() {
 void BlipManager::_ready() {
     UtilityFunctions::print("=== BLIP MANAGER READY ===");
     
-    // If blips_config is empty, create a default one for testing
-    // if (blips_config_.is_empty()) {
-    //     Dictionary default_blip;
-    //     default_blip["position"] = Vector2(0, 0);
-    //     default_blip["color"] = Color(1, 1, 1);
-    //     default_blip["size"] = 5.0f;
-        
-    //     blips_config_.append(default_blip);
-    // }
-    
-    init_blips_from_config();
-    UtilityFunctions::print("Initialized ", get_blip_count(), " blips from config");
-}
-
-void BlipManager::init_blips_from_config() {
-    std::lock_guard<std::mutex> lock(blips_mutex_);
-    
-    for (int i = 0; i < blips_config_.size(); i++) {
-        Dictionary blip_dict = blips_config_[i];
-        
-        // Extract data from dictionary
-        Vector2 pos = blip_dict.get("position", Vector2(0, 0));
-        Color color = blip_dict.get("color", Color(1, 1, 1));
-        float size = blip_dict.get("size", 5.0f);
-        
-        // Create the blip
-        int blip_id = next_blip_id_++;
-        
-        BlipData data;
-        data.id = blip_id;
-        data.position = pos;
-        data.color = color;
-        data.size = size;
-        data.visible = true;
-        
-        blips_data_[blip_id] = data;
-        spatial_grid_[get_grid_key(pos)].push_back(blip_id);
-        
-        UtilityFunctions::print("Loaded blip ", blip_id, " at ", pos);
-    }
-}
-
-void BlipManager::set_blips_config(Array p_config) {
-    blips_config_ = p_config;
-    
-    // Clear existing blips
-    {
-        std::lock_guard<std::mutex> lock(blips_mutex_);
-        blips_data_.clear();
-        spatial_grid_.clear();
-        next_blip_id_ = 0;
-    }
-    
-    // Reload from new config
-    init_blips_from_config();
-}
-
-Array BlipManager::get_blips_config() const {
-    return blips_config_;
 }
 
 int64_t BlipManager::get_grid_key(Vector2 pos) const {
@@ -127,6 +66,35 @@ int BlipManager::create_color_blip(Vector2 p_pos, Color p_color, float p_size) {
     
     UtilityFunctions::print("Created blip ", blip_id, " at ", p_pos);
     return blip_id;
+}
+
+int BlipManager::create_icon_blip(Vector2 p_pos, Ref<Texture2D> p_icon, float p_size) {
+    std::lock_guard<std::mutex> lock(blips_mutex_);
+    
+    int blip_id = next_blip_id_++;
+    
+    BlipData data;
+    data.id = blip_id;
+    data.position = p_pos;
+    data.color = Color(1, 1, 1, 1);  // Default white
+    data.size = p_size;
+    data.visible = true;
+    data.icon = p_icon;
+    
+    blips_data_[blip_id] = data;
+    spatial_grid_[get_grid_key(p_pos)].push_back(blip_id);
+    
+    UtilityFunctions::print("Created icon blip ", blip_id, " at ", p_pos);
+    return blip_id;
+}
+
+void BlipManager::set_blip_icon(int p_blip_id, Ref<Texture2D> p_icon) {
+    std::lock_guard<std::mutex> lock(blips_mutex_);
+    
+    auto it = blips_data_.find(p_blip_id);
+    if (it != blips_data_.end()) {
+        it->second.icon = p_icon;
+    }
 }
 
 void BlipManager::set_blip_position(int p_blip_id, Vector2 p_pos) {
@@ -213,6 +181,7 @@ Array BlipManager::get_visible_blips(Vector2 center, float world_width, float wo
                         Dictionary blip_dict;
                         blip_dict["id"] = blip_it->second.id;
                         blip_dict["position"] = blip_it->second.position;
+                        blip_dict["icon"] = blip_it->second.icon;
                         blip_dict["color"] = blip_it->second.color;
                         blip_dict["size"] = blip_it->second.size;
                         result.append(blip_dict);
@@ -234,6 +203,7 @@ Dictionary BlipManager::get_blip(int p_blip_id) {
     if (it != blips_data_.end()) {
         result["id"] = it->second.id;
         result["position"] = it->second.position;
+        result["icon"] = it->second.icon;
         result["color"] = it->second.color;
         result["size"] = it->second.size;
         result["visible"] = it->second.visible;

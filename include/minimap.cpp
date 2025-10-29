@@ -362,6 +362,7 @@ void Minimap::_draw() {
             Vector2 blip_pos = blip_data["position"];
             Color blip_color = blip_data["color"];
             float blip_size = blip_data["size"];
+            Ref<Texture2D> icon = blip_data["icon"];
             
             float offset_x, offset_z;
             if (is_full_map_view) {
@@ -384,7 +385,13 @@ void Minimap::_draw() {
                     continue; 
                 }
                 
+                if (icon.is_valid()) {
+                    float icon_size = blip_size * minimap_zoom * 2.0;
+                    Rect2 icon_rect(screen_pos - Vector2(icon_size / 2.0, icon_size / 2.0), Vector2(icon_size, icon_size));
+                    draw_texture_rect(icon, icon_rect, false);
+                } else {
                     draw_circle(screen_pos, blip_size * minimap_zoom, blip_color);
+                }
             }
         }
         
