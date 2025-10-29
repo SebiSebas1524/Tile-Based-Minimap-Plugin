@@ -17,7 +17,7 @@ using namespace godot;
 
 void initialize_tbm_plugin(ModuleInitializationLevel p_level)
 {
-    if(p_level == MODULE_INITIALIZATION_LEVEL_EDITOR) {
+    if (p_level == MODULE_INITIALIZATION_LEVEL_EDITOR) {
         GDREGISTER_CLASS(TileCaptureVisualizerGizmoPlugin);
         GDREGISTER_CLASS(TileCaptureVisualizer);
         GDREGISTER_CLASS(TileCaptureVisualizerInspectorPlugin);
@@ -25,19 +25,17 @@ void initialize_tbm_plugin(ModuleInitializationLevel p_level)
 
         GDREGISTER_INTERNAL_CLASS(PluginUI);
         EditorPlugins::add_by_type<PluginUI>();
+
     }
 
-    if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE)
-    {
+    if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
         return;
     }
 
     GDREGISTER_CLASS(BlipManager);
     GDREGISTER_CLASS(Minimap);
-    
-
 }
-  
+
 void uninitialize_tbm_plugin(ModuleInitializationLevel p_level)
 {
     if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE)
