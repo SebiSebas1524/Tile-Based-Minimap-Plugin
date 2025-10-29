@@ -11,27 +11,25 @@ void PluginUI::_bind_methods()
 
 PluginUI::PluginUI()
 {
-    m_button = memnew(Button);
+    //m_button = memnew(Button);
     m_tool = memnew(TileToolCreator);
  
 }
 
 PluginUI::~PluginUI()
 {
-    if(m_button) memdelete(m_button);
+    // if(m_button) memdelete(m_button);
     if(m_tool) memdelete(m_tool);
 }
 
 void PluginUI::_enter_tree()
 {
-    m_button->set_text("My tool button");
-    m_button->connect("pressed", Callable(this, "_button_pressed")); // connect your function to the pressed signal
+    // m_button->set_text("My tool button");
+    // m_button->connect("pressed", Callable(this, "_button_pressed"));
     
-
-    add_child(m_tool);
-    add_control_to_dock(EditorPlugin::DOCK_SLOT_LEFT_BL, m_button);
-
-    m_tool->connect("tool_finished", Callable(this, "_on_tool_finished"));
+    // add_child(m_tool);
+    // add_control_to_dock(EditorPlugin::DOCK_SLOT_LEFT_BL, m_button);
+    // m_tool->connect("tool_finished", Callable(this, "_on_tool_finished"));
 
     // Add the gizmo
     Ref<TileCaptureVisualizerGizmoPlugin> gizmo_plugin;
