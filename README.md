@@ -18,7 +18,7 @@ Requirements:
 - SCons (`pip install scons`) & SCons being declared in your PATH [("how-to" here)](https://stackoverflow.com/a/63925889)
 - Godot 4.4+
 
-Commands for cloning the repository (with the `godot-cpp` submodule included) and building the plugin with **SCons**:
+Commands for cloning the repository (with the `godot-cpp` submodule included) and building the plugin with **SConstruct**:
 ```
 git clone --recursive https://github.com/SebiSebas1524/Tile-Based-Minimap-Plugin
 cd Tile-Based-Minimap-Plugin/
