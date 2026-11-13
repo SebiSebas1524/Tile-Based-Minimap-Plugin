@@ -22,7 +22,7 @@ Commands for cloning the repository (with the `godot-cpp` submodule included) an
 ```
 git clone --recursive https://github.com/SebiSebas1524/Tile-Based-Minimap-Plugin
 cd Tile-Based-Minimap-Plugin/
-sconstruct
+scons
 ```
 
 The build is currently being outputted to `demo/addons/`, but you can easily change this in the `SConstruct` configuration file (`folder = your_path_here`)
