@@ -11,4 +11,20 @@ creating tile-based minimaps with: ​​
 - Basic blip markers (player + waypoint) ​
 - Simple tools to create tiles
 
-**This project is still work in progress**
+# Compiling the plugin yourself
+
+Requirements:
+- a version of Python and pip
+- SCons (`pip install scons`) & SCons being declared in your PATH [("how-to" here)](https://stackoverflow.com/a/63925889)
+- Godot 4.4+
+
+Commands for cloning the repository (with the `godot-cpp` submodule included) and building the plugin with **SCons**:
+```
+git clone --recursive https://github.com/SebiSebas1524/Tile-Based-Minimap-Plugin
+cd Tile-Based-Minimap-Plugin/
+scons
+```
+
+The build is currently being outputted to `demo/addons/`, but you can easily change this in the `SConstruct` configuration file (`folder = your_path_here`)
+
+# **This project is still work in progress**
