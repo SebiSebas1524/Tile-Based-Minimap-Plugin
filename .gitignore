@@ -1,7 +1,61 @@
+# --- SCons ---
 .scons_cache/
-
-.sconsign.dblite
-
+.sconsign*.dblite
+.sconf_temp/
+config.log
 build/
 
-include/*.os
+# --- Compiled objects and libraries ---
+*.obj
+*.o
+*.os
+*.lib
+*.exp
+*.pdb
+*.ilk
+*.idb
+*.a
+*.so
+*.dylib
+
+# --- Compiled addon binaries (see note below) ---
+# *.dll
+
+# --- Godot ---
+.godot/
+.import/
+*.translation
+export.cfg
+export_credentials.cfg
+.mono/
+data_*/
+
+# --- Visual Studio / VS Code / Rider ---
+.vs/
+.vscode/
+.idea/
+*.sln
+*.suo
+*.user
+*.VC.db
+*.VC.VC.opendb
+*.opensdf
+*.sdf
+*.ipch
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+
+# --- Clang / clangd ---
+.cache/
+compile_commands.json
+
+# --- OS junk ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Logs and temp ---
+*.log
+*.tmp
+*.bak
