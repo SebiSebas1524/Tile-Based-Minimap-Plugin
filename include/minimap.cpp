@@ -355,8 +355,6 @@ void Minimap::_draw() {
             world_half_height * 2.0
         );
         
-        UtilityFunctions::print("Visible blips: ", visible_blips.size());
-        
         for (int i = 0; i < visible_blips.size(); i++) {
             Dictionary blip_data = visible_blips[i];
             Vector2 blip_pos = blip_data["position"];
